@@ -1,1 +1,25 @@
 This script will convert a TechEx txEdge JSON file to a CSV.
+
+Usage:
+
+1) txEdge-specific converter (preferred for your structure):
+
+  python3 txedge_to_csv.py -i samples/txedge_sample.json -o samples/txedge_sample.csv
+
+  Columns (in order):
+  - streamName
+  - name
+  - protocol
+  - port
+  - networkInterface/hostAddress
+  - sourceAddress/address
+  - stopped
+  - paused
+  - priority
+
+2) Generic JSON to CSV (optional):
+
+  python3 json_to_csv.py -i input.json -o output.csv
+  python3 json_to_csv.py -i input.json -o output.csv --fields id,name,contact.email
+
+Samples are under `samples/`.

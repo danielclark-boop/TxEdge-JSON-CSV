@@ -1,0 +1,72 @@
+{
+  "configuredStreams": [
+    { "id": 1, "name": "Stream A" },
+    { "id": 2, "name": "Stream B" }
+  ],
+  "configuredSources": [
+    {
+      "name": "Camera 1",
+      "protocol": "rtsp",
+      "stream": 1,
+      "options": {
+        "port": 554,
+        "networkInterface": "eth0",
+        "sourceAddress": "10.0.0.11"
+      },
+      "stopped": false,
+      "paused": false,
+      "priority": 10
+    },
+    {
+      "name": "Camera 2",
+      "protocol": "rtsp",
+      "stream": 1,
+      "options": {
+        "port": 8554,
+        "networkInterface": "eth1",
+        "sourceAddress": "10.0.0.12"
+      },
+      "stopped": true,
+      "paused": false,
+      "priority": 5
+    },
+    {
+      "name": "Mic 1",
+      "protocol": "udp",
+      "stream": 2,
+      "options": {
+        "port": 5004,
+        "networkInterface": "eth2",
+        "sourceAddress": "10.0.1.21"
+      },
+      "stopped": false,
+      "paused": true,
+      "priority": 3
+    }
+  ],
+  "configuredOutputs": [
+    {
+      "name": "Output A1",
+      "protocol": "rtsp",
+      "stream": 1,
+      "options": {
+        "port": 8554,
+        "hostAddress": "10.0.0.2",
+        "address": "/streamA"
+      },
+      "paused": false
+    },
+    {
+      "name": "Output B1",
+      "protocol": "http",
+      "stream": 2,
+      "options": {
+        "port": 8080,
+        "hostAddress": "10.0.1.2",
+        "address": "/api/streamB"
+      },
+      "paused": true
+    }
+  ]
+}
+
