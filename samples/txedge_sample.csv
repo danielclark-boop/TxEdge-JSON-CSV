@@ -1,6 +1,6 @@
-streamName,name,protocol,port,networkInterface/hostAddress,sourceAddress/address,stopped,paused,priority
-Stream A,Camera 1,rtsp,554,eth0,10.0.0.11,false,false,10
-Stream A,Camera 2,rtsp,8554,eth1,10.0.0.12,true,false,5
-Stream A,Output A1,rtsp,8554,10.0.0.2,/streamA,,false,
-Stream B,Mic 1,udp,5004,eth2,10.0.1.21,false,true,3
-Stream B,Output B1,http,8080,10.0.1.2,/api/streamB,,true,
+streamName,Input/Output,name,protocol,port,networkInterface/hostAddress,sourceAddress/address,stopped,paused,priority
+Stream A,Input,Camera 1,rtsp,554,eth0,10.0.0.11,false,false,10
+Stream A,Input,Camera 2,rtsp,8554,eth1,10.0.0.12,true,false,5
+Stream A,Output,Output A1,rtsp,8554,10.0.0.2,/streamA,,false,
+Stream B,Input,Mic 1,udp,5004,eth2,10.0.1.21,false,true,3
+Stream B,Output,Output B1,http,8080,10.0.1.2,/api/streamB,,true,

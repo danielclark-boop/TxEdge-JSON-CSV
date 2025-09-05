@@ -37,6 +37,7 @@ def convert_txedge_to_csv(input_path: str, output_path: str, delimiter: str = ",
     # Header per user specification/order (common across sources and outputs)
     headers: List[str] = [
         "streamName",
+        "Input/Output",
         "name",
         "protocol",
         "port",
@@ -69,6 +70,7 @@ def convert_txedge_to_csv(input_path: str, output_path: str, delimiter: str = ",
 
                 row = [
                     _to_str(stream_name),
+                    "Input",
                     _to_str(source.get("name")),
                     _to_str(source.get("protocol")),
                     _to_str(_get_option_value(source, "port")),
@@ -89,6 +91,7 @@ def convert_txedge_to_csv(input_path: str, output_path: str, delimiter: str = ",
 
                 row = [
                     _to_str(stream_name),
+                    "Output",
                     _to_str(output.get("name")),
                     _to_str(output.get("protocol")),
                     _to_str(_get_option_value(output, "port")),

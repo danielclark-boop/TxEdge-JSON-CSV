@@ -8,6 +8,7 @@ Usage:
 
   Columns (in order):
   - streamName
+  - Input/Output
   - name
   - protocol
   - port
