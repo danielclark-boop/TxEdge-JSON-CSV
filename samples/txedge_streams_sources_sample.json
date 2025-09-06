@@ -1,0 +1,62 @@
+{
+  "configuredStreams": [
+    {
+      "id": 551,
+      "name": "551 - fnc primary",
+      "options": {
+        "failoverTriggers": {
+          "zeroBitrate": true,
+          "TSSyncLoss": true,
+          "lowBitrateThreshold": 2000,
+          "CCErrorsInPeriodThreshold": 10,
+          "CCErrorsInPeriodTime": 10,
+          "lowBitrate": true,
+          "CCErrorsInPeriod": true
+        },
+        "failoverMode": "reverting",
+        "failoverRevertTime": 20,
+        "failoverWaitTime": 0,
+        "enableThumbnails": true
+      },
+      "enableThumbnails": true
+    },
+    {
+      "id": 552,
+      "name": "552 - fnc backup",
+      "options": {
+        "failoverTriggers": {
+          "zeroBitrate": false,
+          "TSSyncLoss": false,
+          "lowBitrateThreshold": 1500,
+          "CCErrorsInPeriodThreshold": 5,
+          "CCErrorsInPeriodTime": 15,
+          "lowBitrate": false,
+          "CCErrorsInPeriod": true
+        },
+        "failoverMode": "non-reverting",
+        "failoverRevertTime": 0,
+        "failoverWaitTime": 5,
+        "enableThumbnails": false
+      },
+      "enableThumbnails": false
+    }
+  ],
+  "configuredSources": [
+    {
+      "name": "551 - FNC B1 From ENC1_250",
+      "stream": 551,
+      "priority": 1
+    },
+    {
+      "name": "551 - FNC B2 From ENC1_350",
+      "stream": 551,
+      "priority": 2
+    },
+    {
+      "name": "552 - FNC B1 From ENC2_250",
+      "stream": 552,
+      "priority": 3
+    }
+  ]
+}
+

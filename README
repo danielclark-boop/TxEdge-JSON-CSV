@@ -24,3 +24,22 @@ Usage:
   python3 json_to_csv.py -i input.json -o output.csv --fields id,name,contact.email
 
 Samples are under `samples/`.
+
+Streams + Sources only:
+
+  python3 txedge_to_csv_streams_sources.py -i samples/txedge_streams_sources_sample.json -o samples/txedge_streams_sources_sample.csv
+
+  Columns (in order):
+  - name
+  - zeroBitrate
+  - TSSyncLoss
+  - lowBitrateThreshold
+  - CCErrorsInPeriodThreshold
+  - CCErrorsInPeriodTime
+  - lowBitrate
+  - CCErrorsInPeriod
+  - failoverMode
+  - failoverRevertTime
+  - failoverWaitTime
+  - enableThumbnails
+  - priority

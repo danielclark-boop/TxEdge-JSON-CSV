@@ -1,0 +1,6 @@
+name,zeroBitrate,TSSyncLoss,lowBitrateThreshold,CCErrorsInPeriodThreshold,CCErrorsInPeriodTime,lowBitrate,CCErrorsInPeriod,failoverMode,failoverRevertTime,failoverWaitTime,enableThumbnails,priority
+551 - fnc primary,true,true,2000,10,10,true,true,reverting,20,0,true,
+551 - FNC B1 From ENC1_250,,,,,,,,,,,,1
+551 - FNC B2 From ENC1_350,,,,,,,,,,,,2
+552 - fnc backup,false,false,1500,5,15,false,true,non-reverting,0,5,false,
+552 - FNC B1 From ENC2_250,,,,,,,,,,,,3
