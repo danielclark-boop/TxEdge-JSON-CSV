@@ -5,6 +5,7 @@ import subprocess
 import tkinter.font as tkfont
 import tkinter as tk
 from tkinter import ttk, messagebox
+import threading
 
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -70,6 +71,14 @@ class TxEdgeGUI(tk.Tk):
         self.convert_all_checkbox = ttk.Checkbutton(container, text="Convert ALL TechEx JSON Files", variable=self.convert_all_var)
         self.convert_all_checkbox.grid(row=6, column=0, sticky="w", pady=(0, 8))
 
+        # Progress bar and active file label (shown during batch conversions)
+        self.progress_var = tk.IntVar(value=0)
+        self.progress = ttk.Progressbar(container, orient="horizontal", mode="determinate", maximum=0, variable=self.progress_var)
+        self.progress.grid(row=8, column=0, columnspan=2, sticky="ew")
+        self.active_file_var = tk.StringVar(value="")
+        self.active_file_label = ttk.Label(container, textvariable=self.active_file_var, foreground="#555")
+        self.active_file_label.grid(row=9, column=0, columnspan=2, sticky="w")
+
         # Run button
         self.run_button = ttk.Button(container, text="Run", command=self.on_run_clicked)
         self.run_button.grid(row=7, column=0, sticky="ew")
@@ -77,7 +86,7 @@ class TxEdgeGUI(tk.Tk):
         # Status
         self.status_var = tk.StringVar(value="")
         self.status_label = ttk.Label(container, textvariable=self.status_var, foreground="#555")
-        self.status_label.grid(row=8, column=0, sticky="w", pady=(8, 0))
+        self.status_label.grid(row=10, column=0, sticky="w", pady=(8, 0))
 
         self._refresh_json_options()
 
@@ -113,32 +122,40 @@ class TxEdgeGUI(tk.Tk):
         self.run_button.configure(state=tk.DISABLED)
         self.update_idletasks()
 
-        try:
-            # Helper for naming rule
-            def make_output_path(input_filename: str) -> str:
-                base_no_ext, _ = os.path.splitext(input_filename)
-                base_lower = base_no_ext.lower()
-                if base_lower.endswith("-config"):
-                    trimmed_base = base_no_ext[: -len("-config")]
-                else:
-                    trimmed_base = base_no_ext
-                if script_label == "Stream Config":
-                    output_base = f"{trimmed_base}-StreamInfo"
-                else:
-                    output_base = trimmed_base
-                return os.path.join(PROJECT_ROOT, env_folder, f"{output_base}.csv")
+        # Helper for naming rule
+        def make_output_path(input_filename: str) -> str:
+            base_no_ext, _ = os.path.splitext(input_filename)
+            base_lower = base_no_ext.lower()
+            if base_lower.endswith("-config"):
+                trimmed_base = base_no_ext[: -len("-config")]
+            else:
+                trimmed_base = base_no_ext
+            if script_label == "Stream Config":
+                output_base = f"{trimmed_base}-StreamInfo"
+            else:
+                output_base = trimmed_base
+            return os.path.join(PROJECT_ROOT, env_folder, f"{output_base}.csv")
 
-            # Batch or single
-            if self.convert_all_var.get():
-                all_jsons = list_json_files(env_folder)
-                if not all_jsons:
-                    messagebox.showerror("Error", f"No JSON files found in '{env_folder}'.")
-                    self.status_var.set("Failed.")
-                    return
+        # Batch or single
+        if self.convert_all_var.get():
+            all_jsons = list_json_files(env_folder)
+            if not all_jsons:
+                messagebox.showerror("Error", f"No JSON files found in '{env_folder}'.")
+                self.status_var.set("Failed.")
+                self.run_button.configure(state=tk.NORMAL)
+                return
+
+            # Prepare progress
+            self.progress.configure(maximum=len(all_jsons))
+            self.progress_var.set(0)
+            self.active_file_var.set("")
+
+            def worker() -> None:
                 successes = 0
                 failures = 0
                 failure_msgs = []
-                for fname in all_jsons:
+                for idx, fname in enumerate(all_jsons, start=1):
+                    self.after(0, lambda f=fname: self.active_file_var.set(f"Converting: {f}"))
                     input_abs_path = os.path.join(PROJECT_ROOT, env_folder, fname)
                     output_abs_path = make_output_path(fname)
                     cmd = [sys.executable, script_abs_path, "-i", input_abs_path, "-o", output_abs_path]
@@ -148,28 +165,40 @@ class TxEdgeGUI(tk.Tk):
                         failure_msgs.append(f"{fname}: {proc.stderr.strip() or 'Unknown error'}")
                     else:
                         successes += 1
-                if failures:
-                    self.status_var.set(f"Done with errors: {successes} succeeded, {failures} failed")
-                    messagebox.showwarning("Completed with errors", "\n".join(failure_msgs[:20]))
-                else:
-                    self.status_var.set(f"Completed: {successes} files converted")
-                    messagebox.showinfo("Success", f"Converted {successes} file(s) in {env_folder}.")
+                    self.after(0, lambda i=idx: self.progress_var.set(i))
+
+                def finish() -> None:
+                    if failures:
+                        self.status_var.set(f"Done with errors: {successes} succeeded, {failures} failed")
+                        messagebox.showwarning("Completed with errors", "\n".join(failure_msgs[:20]))
+                    else:
+                        self.status_var.set(f"Completed: {successes} files converted")
+                        messagebox.showinfo("Success", f"Converted {successes} file(s) in {env_folder}.")
+                    self.active_file_var.set("")
+                    self.run_button.configure(state=tk.NORMAL)
+
+                self.after(0, finish)
+
+            threading.Thread(target=worker, daemon=True).start()
+            return
+
+        # Single file path (synchronous)
+        try:
+            input_abs_path = os.path.join(PROJECT_ROOT, env_folder, json_file_name)
+            if not os.path.exists(input_abs_path):
+                messagebox.showerror("Error", f"Input JSON not found: {input_abs_path}")
+                self.status_var.set("Failed.")
+                return
+            output_abs_path = make_output_path(json_file_name)
+            cmd = [sys.executable, script_abs_path, "-i", input_abs_path, "-o", output_abs_path]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                stderr = proc.stderr.strip() or "Unknown error"
+                messagebox.showerror("Conversion failed", stderr)
+                self.status_var.set("Failed.")
             else:
-                input_abs_path = os.path.join(PROJECT_ROOT, env_folder, json_file_name)
-                if not os.path.exists(input_abs_path):
-                    messagebox.showerror("Error", f"Input JSON not found: {input_abs_path}")
-                    self.status_var.set("Failed.")
-                    return
-                output_abs_path = make_output_path(json_file_name)
-                cmd = [sys.executable, script_abs_path, "-i", input_abs_path, "-o", output_abs_path]
-                proc = subprocess.run(cmd, capture_output=True, text=True)
-                if proc.returncode != 0:
-                    stderr = proc.stderr.strip() or "Unknown error"
-                    messagebox.showerror("Conversion failed", stderr)
-                    self.status_var.set("Failed.")
-                else:
-                    self.status_var.set(f"Done: {os.path.relpath(output_abs_path, PROJECT_ROOT)}")
-                    messagebox.showinfo("Success", f"CSV created:\n{output_abs_path}")
+                self.status_var.set(f"Done: {os.path.relpath(output_abs_path, PROJECT_ROOT)}")
+                messagebox.showinfo("Success", f"CSV created:\n{output_abs_path}")
         except Exception as exc:
             messagebox.showerror("Error", str(exc))
             self.status_var.set("Failed.")
