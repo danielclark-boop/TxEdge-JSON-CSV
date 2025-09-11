@@ -15,6 +15,20 @@ def _get_option_value(item: Dict[str, Any], key: str) -> Optional[Any]:
     return None
 
 
+def _get_option_value_with_fallback(
+    item: Dict[str, Any], primary_key: str, secondary_key: str
+) -> Optional[Any]:
+    """Return options[primary_key] if present, otherwise options[secondary_key].
+
+    Only falls back when the primary key is not present (i.e., None). Values that are
+    present but falsy (e.g., empty string) are respected and not treated as missing.
+    """
+    primary_value = _get_option_value(item, primary_key)
+    if primary_value is not None:
+        return primary_value
+    return _get_option_value(item, secondary_key)
+
+
 def _to_str(value: Any) -> str:
     if value is None:
         return ""
@@ -75,7 +89,9 @@ def convert_txedge_to_csv(input_path: str, output_path: str, delimiter: str = ",
                     _to_str(source.get("protocol")),
                     _to_str(_get_option_value(source, "port")),
                     _to_str(_get_option_value(source, "networkInterface")),
-                    _to_str(_get_option_value(source, "sourceAddress")),
+                    _to_str(
+                        _get_option_value_with_fallback(source, "sourceAddress", "address")
+                    ),
                     _to_str(source.get("stopped")),
                     _to_str(source.get("paused")),
                     _to_str(source.get("priority")),
