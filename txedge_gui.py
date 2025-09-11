@@ -134,7 +134,14 @@ class TxEdgeGUI(tk.Tk):
                 output_base = f"{trimmed_base}-StreamInfo"
             else:
                 output_base = trimmed_base
-            return os.path.join(PROJECT_ROOT, env_folder, f"{output_base}.csv")
+            # Route to subfolder based on script
+            if script_label == "Stream Config":
+                subfolder = "StreamInfo-CSVs"
+            else:
+                subfolder = "Input-Output-CSVs"
+            env_output_dir = os.path.join(PROJECT_ROOT, env_folder, subfolder)
+            os.makedirs(env_output_dir, exist_ok=True)
+            return os.path.join(env_output_dir, f"{output_base}.csv")
 
         # Batch or single
         if self.convert_all_var.get():
