@@ -96,9 +96,24 @@ class TxEdgeGUI(tk.Tk):
             messagebox.showerror("Error", f"Input JSON not found: {input_abs_path}")
             return
 
-        # Output: same name, .csv, in the same env folder
-        base, _ = os.path.splitext(json_file_name)
-        output_abs_path = os.path.join(PROJECT_ROOT, env_folder, f"{base}.csv")
+        # Output naming rules:
+        # - Base is input name without extension
+        # - If base ends with '-config' (case-insensitive), drop that suffix
+        # - If Script == 'Stream Config': append '-StreamInfo'
+        # - If Script == 'Input/Output': do not append suffix
+        base_no_ext, _ = os.path.splitext(json_file_name)
+        base_lower = base_no_ext.lower()
+        if base_lower.endswith("-config"):
+            trimmed_base = base_no_ext[: -len("-config")]
+        else:
+            trimmed_base = base_no_ext
+
+        if script_label == "Stream Config":
+            output_base = f"{trimmed_base}-StreamInfo"
+        else:
+            output_base = trimmed_base
+
+        output_abs_path = os.path.join(PROJECT_ROOT, env_folder, f"{output_base}.csv")
 
         self.status_var.set("Running...")
         self.run_button.configure(state=tk.DISABLED)
