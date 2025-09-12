@@ -67,6 +67,7 @@ def _hide_windows_console_if_present() -> None:
 
 def _load_conversion_functions_from_meipass() -> None:
     """In frozen onefile builds, attempt to import converters from bundled data."""
+    global convert_txedge_to_csv, convert_streams_sources
     if (convert_txedge_to_csv is not None) and (convert_streams_sources is not None):
         return
     base_dir = getattr(sys, "_MEIPASS", None)
@@ -75,7 +76,6 @@ def _load_conversion_functions_from_meipass() -> None:
     try:
         import importlib.util
         # txedge_to_csv.py
-        global convert_txedge_to_csv
         csv_mod_path = os.path.join(base_dir, "Scripts", "txedge_to_csv.py")
         if (convert_txedge_to_csv is None) and os.path.exists(csv_mod_path):
             spec = importlib.util.spec_from_file_location("txedge_to_csv", csv_mod_path)
@@ -84,7 +84,6 @@ def _load_conversion_functions_from_meipass() -> None:
                 spec.loader.exec_module(module)  # type: ignore[attr-defined]
                 convert_txedge_to_csv = getattr(module, "convert_txedge_to_csv", None)
         # txedge_to_csv_streams_sources.py
-        global convert_streams_sources
         s_mod_path = os.path.join(base_dir, "Scripts", "txedge_to_csv_streams_sources.py")
         if (convert_streams_sources is None) and os.path.exists(s_mod_path):
             spec2 = importlib.util.spec_from_file_location("txedge_to_csv_streams_sources", s_mod_path)
