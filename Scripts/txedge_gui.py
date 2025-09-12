@@ -14,7 +14,7 @@ try:
     from txedge_to_csv import convert_txedge_to_csv  # type: ignore
     from txedge_to_csv_streams_sources import convert_streams_sources  # type: ignore
 except Exception:
-    # If running in an unusual environment, fail later with a clear message
+    # If running in an unusual environment (e.g., frozen onefile), load later with a fallback
     convert_txedge_to_csv = None  # type: ignore
     convert_streams_sources = None  # type: ignore
 
@@ -62,6 +62,57 @@ def _hide_windows_console_if_present() -> None:
             ShowWindow(hwnd, SW_HIDE)
     except Exception:
         # Non-fatal: if this fails, the app still runs
+        pass
+
+
+def _load_conversion_functions_from_meipass() -> None:
+    """In frozen onefile builds, attempt to import converters from bundled data."""
+    if (convert_txedge_to_csv is not None) and (convert_streams_sources is not None):
+        return
+    base_dir = getattr(sys, "_MEIPASS", None)
+    if not base_dir:
+        return
+    try:
+        import importlib.util
+        # txedge_to_csv.py
+        global convert_txedge_to_csv
+        csv_mod_path = os.path.join(base_dir, "Scripts", "txedge_to_csv.py")
+        if (convert_txedge_to_csv is None) and os.path.exists(csv_mod_path):
+            spec = importlib.util.spec_from_file_location("txedge_to_csv", csv_mod_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)  # type: ignore[attr-defined]
+                convert_txedge_to_csv = getattr(module, "convert_txedge_to_csv", None)
+        # txedge_to_csv_streams_sources.py
+        global convert_streams_sources
+        s_mod_path = os.path.join(base_dir, "Scripts", "txedge_to_csv_streams_sources.py")
+        if (convert_streams_sources is None) and os.path.exists(s_mod_path):
+            spec2 = importlib.util.spec_from_file_location("txedge_to_csv_streams_sources", s_mod_path)
+            if spec2 and spec2.loader:
+                module2 = importlib.util.module_from_spec(spec2)
+                spec2.loader.exec_module(module2)  # type: ignore[attr-defined]
+                convert_streams_sources = getattr(module2, "convert_streams_sources", None)
+    except Exception:
+        # Non-fatal; handled by UI error message later
+        pass
+
+
+def _update_script_mapping() -> None:
+    """Refresh mapping after late imports in frozen builds."""
+    SCRIPT_LABEL_TO_FUNC["Stream Config"] = convert_streams_sources  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Input/Output"] = convert_txedge_to_csv  # type: ignore[index]
+
+
+def _ensure_environment_structure() -> None:
+    """Ensure TDP/D2C/FTS and output subfolders exist under PROJECT_ROOT."""
+    try:
+        for env_name in ENV_FOLDERS:
+            env_dir = os.path.join(PROJECT_ROOT, env_name)
+            os.makedirs(env_dir, exist_ok=True)
+            os.makedirs(os.path.join(env_dir, "StreamInfo-CSVs"), exist_ok=True)
+            os.makedirs(os.path.join(env_dir, "Input-Output-CSVs"), exist_ok=True)
+    except Exception:
+        # Non-fatal: permissions or other issues should not block app startup
         pass
 
 
@@ -282,6 +333,9 @@ class TxEdgeGUI(tk.Tk):
 
 def main() -> int:
     _hide_windows_console_if_present()
+    _ensure_environment_structure()
+    _load_conversion_functions_from_meipass()
+    _update_script_mapping()
     app = TxEdgeGUI()
     app.mainloop()
     return 0
