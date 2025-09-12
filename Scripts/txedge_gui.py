@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
 import os
 import sys
-import subprocess
 import tkinter.font as tkfont
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 
+# Make sibling scripts importable and import conversion functions
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPTS_DIR not in sys.path:
+    sys.path.append(SCRIPTS_DIR)
+try:
+    from txedge_to_csv import convert_txedge_to_csv  # type: ignore
+    from txedge_to_csv_streams_sources import convert_streams_sources  # type: ignore
+except Exception:
+    # If running in an unusual environment, fail later with a clear message
+    convert_txedge_to_csv = None  # type: ignore
+    convert_streams_sources = None  # type: ignore
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+if getattr(sys, "frozen", False):
+    PROJECT_ROOT = os.path.dirname(sys.executable)
+else:
+    PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_FOLDERS = ["TDP", "D2C", "FTS"]
-SCRIPT_LABEL_TO_FILE = {
-    "Stream Config": os.path.join("Scripts", "txedge_to_csv_streams_sources.py"),
-    "Input/Output": os.path.join("Scripts", "txedge_to_csv.py"),
+SCRIPT_LABEL_TO_FUNC = {
+    "Stream Config": convert_streams_sources,
+    "Input/Output": convert_txedge_to_csv,
 }
 
 
@@ -55,7 +69,7 @@ class TxEdgeGUI(tk.Tk):
         # Script
         ttk.Label(container, text="Script").grid(row=2, column=0, sticky="w")
         self.script_var = tk.StringVar(value="Stream Config")
-        self.script_combo = ttk.Combobox(container, textvariable=self.script_var, values=list(SCRIPT_LABEL_TO_FILE.keys()), state="readonly", width=int(round(30 * scale_factor)))
+        self.script_combo = ttk.Combobox(container, textvariable=self.script_var, values=list(SCRIPT_LABEL_TO_FUNC.keys()), state="readonly", width=int(round(30 * scale_factor)))
         self.script_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
 
         # JSON File
@@ -111,11 +125,10 @@ class TxEdgeGUI(tk.Tk):
             messagebox.showerror("Error", f"No JSON files found in '{env_folder}'.")
             return
 
-        script_rel_path = SCRIPT_LABEL_TO_FILE.get(script_label)
-        script_abs_path = os.path.join(PROJECT_ROOT, script_rel_path)
-
-        if not os.path.exists(script_abs_path):
-            messagebox.showerror("Error", f"Script not found: {script_rel_path}")
+        # Resolve conversion function
+        convert_func = SCRIPT_LABEL_TO_FUNC.get(script_label)
+        if convert_func is None:
+            messagebox.showerror("Error", f"Conversion function not available for: {script_label}")
             return
 
         self.status_var.set("Running...")
@@ -165,13 +178,12 @@ class TxEdgeGUI(tk.Tk):
                     self.after(0, lambda f=fname: self.active_file_var.set(f"Converting: {f}"))
                     input_abs_path = os.path.join(PROJECT_ROOT, env_folder, fname)
                     output_abs_path = make_output_path(fname)
-                    cmd = [sys.executable, script_abs_path, "-i", input_abs_path, "-o", output_abs_path]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    if proc.returncode != 0:
-                        failures += 1
-                        failure_msgs.append(f"{fname}: {proc.stderr.strip() or 'Unknown error'}")
-                    else:
+                    try:
+                        convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
                         successes += 1
+                    except Exception as exc:
+                        failures += 1
+                        failure_msgs.append(f"{fname}: {str(exc)}")
                     self.after(0, lambda i=idx: self.progress_var.set(i))
 
                 def finish() -> None:
@@ -197,18 +209,13 @@ class TxEdgeGUI(tk.Tk):
                 self.status_var.set("Failed.")
                 return
             output_abs_path = make_output_path(json_file_name)
-            cmd = [sys.executable, script_abs_path, "-i", input_abs_path, "-o", output_abs_path]
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            if proc.returncode != 0:
-                stderr = proc.stderr.strip() or "Unknown error"
-                messagebox.showerror("Conversion failed", stderr)
-                self.status_var.set("Failed.")
-            else:
+            try:
+                convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
                 self.status_var.set(f"Done: {os.path.relpath(output_abs_path, PROJECT_ROOT)}")
                 messagebox.showinfo("Success", f"CSV created:\n{output_abs_path}")
-        except Exception as exc:
-            messagebox.showerror("Error", str(exc))
-            self.status_var.set("Failed.")
+            except Exception as exc:
+                messagebox.showerror("Conversion failed", str(exc))
+                self.status_var.set("Failed.")
         finally:
             self.run_button.configure(state=tk.NORMAL)
 
