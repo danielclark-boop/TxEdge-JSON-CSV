@@ -41,6 +41,30 @@ def list_json_files(env_folder: str) -> list:
     return files
 
 
+def _hide_windows_console_if_present() -> None:
+    """On Windows, hide the console window so the GUI runs without a static terminal."""
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32")
+        user32 = ctypes.WinDLL("user32")
+
+        GetConsoleWindow = kernel32.GetConsoleWindow
+        GetConsoleWindow.restype = wintypes.HWND
+        ShowWindow = user32.ShowWindow
+
+        SW_HIDE = 0
+        hwnd = GetConsoleWindow()
+        if hwnd:
+            ShowWindow(hwnd, SW_HIDE)
+    except Exception:
+        # Non-fatal: if this fails, the app still runs
+        pass
+
+
 class TxEdgeGUI(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -88,7 +112,7 @@ class TxEdgeGUI(tk.Tk):
         # Progress bar and active file label (shown during batch conversions)
         self.progress_var = tk.IntVar(value=0)
         self.progress = ttk.Progressbar(container, orient="horizontal", mode="determinate", maximum=0, variable=self.progress_var)
-        self.progress.grid(row=8, column=0, columnspan=2, sticky="ew")
+        self.progress.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(20, 0))
         self.active_file_var = tk.StringVar(value="")
         self.active_file_label = ttk.Label(container, textvariable=self.active_file_var, foreground="#555")
         self.active_file_label.grid(row=9, column=0, columnspan=2, sticky="w")
@@ -96,6 +120,8 @@ class TxEdgeGUI(tk.Tk):
         # Run button
         self.run_button = ttk.Button(container, text="Run", command=self.on_run_clicked)
         self.run_button.grid(row=7, column=0, sticky="ew")
+        self.open_folder_button = ttk.Button(container, text="Open Output Folder", command=self.on_open_output_folder)
+        self.open_folder_button.grid(row=7, column=1, sticky="ew")
 
         # Status
         self.status_var = tk.StringVar(value="")
@@ -219,8 +245,43 @@ class TxEdgeGUI(tk.Tk):
         finally:
             self.run_button.configure(state=tk.NORMAL)
 
+    def on_open_output_folder(self) -> None:
+        env_folder = self.env_var.get()
+        script_label = self.script_var.get()
+        if not env_folder:
+            messagebox.showerror("Error", "Please select a TechEx Environment.")
+            return
+        if not script_label:
+            messagebox.showerror("Error", "Please select a Script.")
+            return
+
+        if script_label == "Stream Config":
+            subfolder = "StreamInfo-CSVs"
+        else:
+            subfolder = "Input-Output-CSVs"
+
+        target_dir = os.path.join(PROJECT_ROOT, env_folder, subfolder)
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+        except Exception as exc:
+            messagebox.showerror("Error", f"Cannot create/access folder:\n{target_dir}\n\n{exc}")
+            return
+
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(target_dir)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", target_dir])
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", target_dir])
+        except Exception as exc:
+            messagebox.showerror("Error", f"Failed to open folder:\n{target_dir}\n\n{exc}")
+
 
 def main() -> int:
+    _hide_windows_console_if_present()
     app = TxEdgeGUI()
     app.mainloop()
     return 0

@@ -1,4 +1,27 @@
-This script will convert a TechEx txEdge JSON file to a CSV.
+Dependencies
+
+- Python 3.x is required
+  - Windows: https://www.python.org/downloads/windows/
+  - macOS: https://www.python.org/downloads/macos/
+
+
+This project converts TechEx txEdge JSON files to CSV.
+
+GUI (Recommended)
+
+- Launch the GUI:
+  - Windows/macOS/Linux: `python Scripts/txedge_gui.py`
+- How it works:
+  - Select a TechEx Environment (e.g., `TDP`, `D2C`, `FTS`).
+  - Choose a Script:
+    - "Stream Config" → outputs to `StreamInfo-CSVs/`
+    - "Input/Output" → outputs to `Input-Output-CSVs/`
+  - Pick a JSON file or enable "Convert ALL TechEx JSON Files" to batch convert.
+  - Click "Run" to generate CSVs. The status and progress bar will update during batch runs.
+  - Use "Open Output Folder" to open the destination directory for the current script/environment.
+- Notes:
+  - On Windows, the GUI hides the console window automatically.
+  - On macOS, launching via Finder or as an app bundle shows no terminal; invoking from a shell shows the shell because it is the invoker.
 
 Usage:
 
