@@ -1,6 +1,39 @@
-This script will convert a TechEx txEdge JSON file to a CSV.
+Dependencies
 
-Usage:
+- Python 3.x is only required to run the raw scripts directly from source.
+  - Windows: https://www.python.org/downloads/windows/
+  - macOS: https://www.python.org/downloads/macos/
+- The bundled executable (Windows) or app (macOS) does not require Python to be installed.
+
+
+This project converts TechEx txEdge JSON files to CSV.
+
+Using the bundled executable/app (Recommended)
+
+- Run the application (no Python required):
+  - Windows: run the packaged `txedge_gui.exe`.
+  - macOS: run the packaged `txedge_gui` app/binary.
+- On first launch (and on each run), the app ensures the following structure exists in the directory it is launched from:
+  - `TDP/StreamInfo-CSVs/`
+  - `TDP/Input-Output-CSVs/`
+  - `D2C/StreamInfo-CSVs/`
+  - `D2C/Input-Output-CSVs/`
+  - `FTS/StreamInfo-CSVs/`
+  - `FTS/Input-Output-CSVs/`
+- Place your TechEx JSON files inside the appropriate environment folder (e.g., `TDP/`, `D2C/`, or `FTS/`).
+- Using the GUI:
+  - Select the Environment (`TDP`, `D2C`, or `FTS`).
+  - Choose the Script:
+    - "Stream Config" → outputs CSVs under `StreamInfo-CSVs/`.
+    - "Input/Output" → outputs CSVs under `Input-Output-CSVs/`.
+  - Pick a specific JSON file, or select "Convert ALL TechEx JSON Files" to batch process every JSON in the chosen environment.
+  - Click "Run" to generate CSVs. A status label and progress bar indicate progress during batch conversions.
+  - Click "Open Output Folder" to open the destination folder for the current environment/script.
+- Notes:
+  - Windows: the app hides the console window automatically.
+  - macOS: launching via Finder or as an app bundle shows no terminal; launching from a shell will keep the invoking shell open.
+
+Usage (raw scripts)
 
 1) txEdge-specific converter (preferred for your structure):
 
