@@ -13,10 +13,12 @@ if SCRIPTS_DIR not in sys.path:
 try:
     from txedge_to_csv import convert_txedge_to_csv  # type: ignore
     from txedge_to_csv_streams_sources import convert_streams_sources  # type: ignore
+    from txedge_to_csv_with_id import convert_txedge_to_csv_with_id  # type: ignore
 except Exception:
     # If running in an unusual environment (e.g., frozen onefile), load later with a fallback
     convert_txedge_to_csv = None  # type: ignore
     convert_streams_sources = None  # type: ignore
+    convert_txedge_to_csv_with_id = None  # type: ignore
 
 
 if getattr(sys, "frozen", False):
@@ -25,8 +27,9 @@ else:
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_FOLDERS = ["TDP", "D2C", "FTS"]
 SCRIPT_LABEL_TO_FUNC = {
-    "Stream Config": convert_streams_sources,
+    "Stream Information": convert_streams_sources,
     "Input/Output": convert_txedge_to_csv,
+    "Create Editable CSV": convert_txedge_to_csv_with_id,
 }
 
 
@@ -67,8 +70,12 @@ def _hide_windows_console_if_present() -> None:
 
 def _load_conversion_functions_from_meipass() -> None:
     """In frozen onefile builds, attempt to import converters from bundled data."""
-    global convert_txedge_to_csv, convert_streams_sources
-    if (convert_txedge_to_csv is not None) and (convert_streams_sources is not None):
+    global convert_txedge_to_csv, convert_streams_sources, convert_txedge_to_csv_with_id
+    if (
+        (convert_txedge_to_csv is not None)
+        and (convert_streams_sources is not None)
+        and (convert_txedge_to_csv_with_id is not None)
+    ):
         return
     base_dir = getattr(sys, "_MEIPASS", None)
     if not base_dir:
@@ -91,6 +98,14 @@ def _load_conversion_functions_from_meipass() -> None:
                 module2 = importlib.util.module_from_spec(spec2)
                 spec2.loader.exec_module(module2)  # type: ignore[attr-defined]
                 convert_streams_sources = getattr(module2, "convert_streams_sources", None)
+        # txedge_to_csv_with_id.py
+        id_mod_path = os.path.join(base_dir, "Scripts", "txedge_to_csv_with_id.py")
+        if (convert_txedge_to_csv_with_id is None) and os.path.exists(id_mod_path):
+            spec3 = importlib.util.spec_from_file_location("txedge_to_csv_with_id", id_mod_path)
+            if spec3 and spec3.loader:
+                module3 = importlib.util.module_from_spec(spec3)
+                spec3.loader.exec_module(module3)  # type: ignore[attr-defined]
+                convert_txedge_to_csv_with_id = getattr(module3, "convert_txedge_to_csv_with_id", None)
     except Exception:
         # Non-fatal; handled by UI error message later
         pass
@@ -98,8 +113,9 @@ def _load_conversion_functions_from_meipass() -> None:
 
 def _update_script_mapping() -> None:
     """Refresh mapping after late imports in frozen builds."""
-    SCRIPT_LABEL_TO_FUNC["Stream Config"] = convert_streams_sources  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Stream Information"] = convert_streams_sources  # type: ignore[index]
     SCRIPT_LABEL_TO_FUNC["Input/Output"] = convert_txedge_to_csv  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Create Editable CSV"] = convert_txedge_to_csv_with_id  # type: ignore[index]
 
 
 def _ensure_environment_structure() -> None:
@@ -110,6 +126,7 @@ def _ensure_environment_structure() -> None:
             os.makedirs(env_dir, exist_ok=True)
             os.makedirs(os.path.join(env_dir, "StreamInfo-CSVs"), exist_ok=True)
             os.makedirs(os.path.join(env_dir, "Input-Output-CSVs"), exist_ok=True)
+            os.makedirs(os.path.join(env_dir, "Editable CSVs"), exist_ok=True)
     except Exception:
         # Non-fatal: permissions or other issues should not block app startup
         pass
@@ -142,7 +159,7 @@ class TxEdgeGUI(tk.Tk):
 
         # Script
         ttk.Label(container, text="Script").grid(row=2, column=0, sticky="w")
-        self.script_var = tk.StringVar(value="Stream Config")
+        self.script_var = tk.StringVar(value="Stream Information")
         self.script_combo = ttk.Combobox(container, textvariable=self.script_var, values=list(SCRIPT_LABEL_TO_FUNC.keys()), state="readonly", width=int(round(30 * scale_factor)))
         self.script_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
 
@@ -219,13 +236,15 @@ class TxEdgeGUI(tk.Tk):
                 trimmed_base = base_no_ext[: -len("-config")]
             else:
                 trimmed_base = base_no_ext
-            if script_label == "Stream Config":
+            if script_label == "Stream Information":
                 output_base = f"{trimmed_base}-StreamInfo"
             else:
                 output_base = trimmed_base
             # Route to subfolder based on script
-            if script_label == "Stream Config":
+            if script_label == "Stream Information":
                 subfolder = "StreamInfo-CSVs"
+            elif script_label == "Create Editable CSV":
+                subfolder = "Editable CSVs"
             else:
                 subfolder = "Input-Output-CSVs"
             env_output_dir = os.path.join(PROJECT_ROOT, env_folder, subfolder)
@@ -305,8 +324,10 @@ class TxEdgeGUI(tk.Tk):
             messagebox.showerror("Error", "Please select a Script.")
             return
 
-        if script_label == "Stream Config":
+        if script_label == "Stream Information":
             subfolder = "StreamInfo-CSVs"
+        elif script_label == "Create Editable CSV":
+            subfolder = "Editable CSVs"
         else:
             subfolder = "Input-Output-CSVs"
 
