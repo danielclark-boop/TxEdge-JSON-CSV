@@ -14,11 +14,13 @@ try:
     from txedge_to_csv import convert_txedge_to_csv  # type: ignore
     from txedge_to_csv_streams_sources import convert_streams_sources  # type: ignore
     from txedge_to_csv_with_id import convert_txedge_to_csv_with_id  # type: ignore
+    from CSV_to_JSON import convert_csv_to_json  # type: ignore
 except Exception:
     # If running in an unusual environment (e.g., frozen onefile), load later with a fallback
     convert_txedge_to_csv = None  # type: ignore
     convert_streams_sources = None  # type: ignore
     convert_txedge_to_csv_with_id = None  # type: ignore
+    convert_csv_to_json = None  # type: ignore
 
 
 if getattr(sys, "frozen", False):
@@ -30,6 +32,7 @@ SCRIPT_LABEL_TO_FUNC = {
     "Stream Information": convert_streams_sources,
     "Input/Output": convert_txedge_to_csv,
     "Create Editable CSV": convert_txedge_to_csv_with_id,
+    "Convert CSV to JSON": convert_csv_to_json,
 }
 
 
@@ -38,6 +41,17 @@ def list_json_files(env_folder: str) -> list:
     try:
         files = sorted(
             [f for f in os.listdir(env_path) if f.lower().endswith(".json")]
+        )
+    except FileNotFoundError:
+        files = []
+    return files
+
+
+def list_csv_files_in_editable(env_folder: str) -> list:
+    env_path = os.path.join(PROJECT_ROOT, env_folder, "Editable CSVs")
+    try:
+        files = sorted(
+            [f for f in os.listdir(env_path) if f.lower().endswith(".csv")]
         )
     except FileNotFoundError:
         files = []
@@ -70,11 +84,12 @@ def _hide_windows_console_if_present() -> None:
 
 def _load_conversion_functions_from_meipass() -> None:
     """In frozen onefile builds, attempt to import converters from bundled data."""
-    global convert_txedge_to_csv, convert_streams_sources, convert_txedge_to_csv_with_id
+    global convert_txedge_to_csv, convert_streams_sources, convert_txedge_to_csv_with_id, convert_csv_to_json
     if (
         (convert_txedge_to_csv is not None)
         and (convert_streams_sources is not None)
         and (convert_txedge_to_csv_with_id is not None)
+        and (convert_csv_to_json is not None)
     ):
         return
     base_dir = getattr(sys, "_MEIPASS", None)
@@ -106,6 +121,14 @@ def _load_conversion_functions_from_meipass() -> None:
                 module3 = importlib.util.module_from_spec(spec3)
                 spec3.loader.exec_module(module3)  # type: ignore[attr-defined]
                 convert_txedge_to_csv_with_id = getattr(module3, "convert_txedge_to_csv_with_id", None)
+        # CSV_to_JSON.py
+        rev_mod_path = os.path.join(base_dir, "Scripts", "CSV_to_JSON.py")
+        if (convert_csv_to_json is None) and os.path.exists(rev_mod_path):
+            spec4 = importlib.util.spec_from_file_location("CSV_to_JSON", rev_mod_path)
+            if spec4 and spec4.loader:
+                module4 = importlib.util.module_from_spec(spec4)
+                spec4.loader.exec_module(module4)  # type: ignore[attr-defined]
+                convert_csv_to_json = getattr(module4, "convert_csv_to_json", None)
     except Exception:
         # Non-fatal; handled by UI error message later
         pass
@@ -116,6 +139,7 @@ def _update_script_mapping() -> None:
     SCRIPT_LABEL_TO_FUNC["Stream Information"] = convert_streams_sources  # type: ignore[index]
     SCRIPT_LABEL_TO_FUNC["Input/Output"] = convert_txedge_to_csv  # type: ignore[index]
     SCRIPT_LABEL_TO_FUNC["Create Editable CSV"] = convert_txedge_to_csv_with_id  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Convert CSV to JSON"] = convert_csv_to_json  # type: ignore[index]
 
 
 def _ensure_environment_structure() -> None:
@@ -127,6 +151,7 @@ def _ensure_environment_structure() -> None:
             os.makedirs(os.path.join(env_dir, "StreamInfo-CSVs"), exist_ok=True)
             os.makedirs(os.path.join(env_dir, "Input-Output-CSVs"), exist_ok=True)
             os.makedirs(os.path.join(env_dir, "Editable CSVs"), exist_ok=True)
+            os.makedirs(os.path.join(env_dir, "Updated JSONs"), exist_ok=True)
     except Exception:
         # Non-fatal: permissions or other issues should not block app startup
         pass
@@ -163,8 +188,9 @@ class TxEdgeGUI(tk.Tk):
         self.script_combo = ttk.Combobox(container, textvariable=self.script_var, values=list(SCRIPT_LABEL_TO_FUNC.keys()), state="readonly", width=int(round(30 * scale_factor)))
         self.script_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
 
-        # JSON File
-        ttk.Label(container, text="JSON File").grid(row=4, column=0, sticky="w")
+        # File Label (JSON/CSV depending on script)
+        self.file_label = ttk.Label(container, text="JSON File")
+        self.file_label.grid(row=4, column=0, sticky="w")
         refresh_btn = ttk.Button(container, text="Refresh", command=self._refresh_json_options)
         refresh_btn.grid(row=4, column=1, sticky="w", padx=(8, 0))
         self.json_var = tk.StringVar(value="")
@@ -195,13 +221,24 @@ class TxEdgeGUI(tk.Tk):
         self.status_label = ttk.Label(container, textvariable=self.status_var, foreground="#555")
         self.status_label.grid(row=10, column=0, sticky="w", pady=(8, 0))
 
+        # React to script changes to update labels and file lists
+        self.script_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_json_options())
+
         self._refresh_json_options()
 
     def _refresh_json_options(self) -> None:
         env_folder = self.env_var.get()
-        json_files = list_json_files(env_folder)
-        self.json_combo["values"] = json_files
-        self.json_var.set(json_files[0] if json_files else "")
+        script_label = self.script_var.get()
+        if script_label == "Convert CSV to JSON":
+            files = list_csv_files_in_editable(env_folder)
+            self.file_label.configure(text="CSV File")
+            self.convert_all_checkbox.configure(text="Convert ALL CSV Files")
+        else:
+            files = list_json_files(env_folder)
+            self.file_label.configure(text="JSON File")
+            self.convert_all_checkbox.configure(text="Convert ALL TechEx JSON Files")
+        self.json_combo["values"] = files
+        self.json_var.set(files[0] if files else "")
 
     def on_run_clicked(self) -> None:
         env_folder = self.env_var.get()
@@ -238,6 +275,9 @@ class TxEdgeGUI(tk.Tk):
                 trimmed_base = base_no_ext
             if script_label == "Stream Information":
                 output_base = f"{trimmed_base}-StreamInfo"
+            elif script_label == "Convert CSV to JSON":
+                # For reverse conversion, output JSON should be named <csv_base>-config.json
+                output_base = f"{base_no_ext}-config"
             else:
                 output_base = trimmed_base
             # Route to subfolder based on script
@@ -245,23 +285,31 @@ class TxEdgeGUI(tk.Tk):
                 subfolder = "StreamInfo-CSVs"
             elif script_label == "Create Editable CSV":
                 subfolder = "Editable CSVs"
+            elif script_label == "Convert CSV to JSON":
+                subfolder = "Updated JSONs"
             else:
                 subfolder = "Input-Output-CSVs"
             env_output_dir = os.path.join(PROJECT_ROOT, env_folder, subfolder)
             os.makedirs(env_output_dir, exist_ok=True)
-            return os.path.join(env_output_dir, f"{output_base}.csv")
+            ext = ".json" if script_label == "Convert CSV to JSON" else ".csv"
+            return os.path.join(env_output_dir, f"{output_base}{ext}")
 
         # Batch or single
         if self.convert_all_var.get():
-            all_jsons = list_json_files(env_folder)
-            if not all_jsons:
-                messagebox.showerror("Error", f"No JSON files found in '{env_folder}'.")
+            if script_label == "Convert CSV to JSON":
+                all_files = list_csv_files_in_editable(env_folder)
+                none_msg = f"No CSV files found in '{env_folder}/Editable CSVs'."
+            else:
+                all_files = list_json_files(env_folder)
+                none_msg = f"No JSON files found in '{env_folder}'."
+            if not all_files:
+                messagebox.showerror("Error", none_msg)
                 self.status_var.set("Failed.")
                 self.run_button.configure(state=tk.NORMAL)
                 return
 
             # Prepare progress
-            self.progress.configure(maximum=len(all_jsons))
+            self.progress.configure(maximum=len(all_files))
             self.progress_var.set(0)
             self.active_file_var.set("")
 
@@ -269,9 +317,12 @@ class TxEdgeGUI(tk.Tk):
                 successes = 0
                 failures = 0
                 failure_msgs = []
-                for idx, fname in enumerate(all_jsons, start=1):
+                for idx, fname in enumerate(all_files, start=1):
                     self.after(0, lambda f=fname: self.active_file_var.set(f"Converting: {f}"))
-                    input_abs_path = os.path.join(PROJECT_ROOT, env_folder, fname)
+                    if script_label == "Convert CSV to JSON":
+                        input_abs_path = os.path.join(PROJECT_ROOT, env_folder, "Editable CSVs", fname)
+                    else:
+                        input_abs_path = os.path.join(PROJECT_ROOT, env_folder, fname)
                     output_abs_path = make_output_path(fname)
                     try:
                         convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
@@ -298,16 +349,21 @@ class TxEdgeGUI(tk.Tk):
 
         # Single file path (synchronous)
         try:
-            input_abs_path = os.path.join(PROJECT_ROOT, env_folder, json_file_name)
+            if script_label == "Convert CSV to JSON":
+                input_abs_path = os.path.join(PROJECT_ROOT, env_folder, "Editable CSVs", json_file_name)
+            else:
+                input_abs_path = os.path.join(PROJECT_ROOT, env_folder, json_file_name)
             if not os.path.exists(input_abs_path):
-                messagebox.showerror("Error", f"Input JSON not found: {input_abs_path}")
+                missing_label = "CSV" if script_label == "Convert CSV to JSON" else "JSON"
+                messagebox.showerror("Error", f"Input {missing_label} not found: {input_abs_path}")
                 self.status_var.set("Failed.")
                 return
             output_abs_path = make_output_path(json_file_name)
             try:
                 convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
                 self.status_var.set(f"Done: {os.path.relpath(output_abs_path, PROJECT_ROOT)}")
-                messagebox.showinfo("Success", f"CSV created:\n{output_abs_path}")
+                success_label = "JSON" if script_label == "Convert CSV to JSON" else "CSV"
+                messagebox.showinfo("Success", f"{success_label} created:\n{output_abs_path}")
             except Exception as exc:
                 messagebox.showerror("Conversion failed", str(exc))
                 self.status_var.set("Failed.")
@@ -328,6 +384,8 @@ class TxEdgeGUI(tk.Tk):
             subfolder = "StreamInfo-CSVs"
         elif script_label == "Create Editable CSV":
             subfolder = "Editable CSVs"
+        elif script_label == "Convert CSV to JSON":
+            subfolder = "Updated JSONs"
         else:
             subfolder = "Input-Output-CSVs"
 
