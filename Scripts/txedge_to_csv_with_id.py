@@ -60,10 +60,14 @@ def _collect_headers(items: List[Dict[str, Any]]) -> List[str]:
         flat = _flatten_to_last_keys(obj, {})
         header_set.update(flat.keys())
 
-    # Keep key identifiers first if present, then the rest alphabetical for stability
+    # Keep key identifiers first if present, then "objectType" as the 4th column,
+    # then the rest alphabetical for stability
     preferred_order = ["id", "stream", "name"]
-    remaining = sorted([h for h in header_set if h not in preferred_order], key=str.lower)
-    ordered = [h for h in preferred_order if h in header_set] + remaining
+    remaining = sorted([h for h in header_set if h not in preferred_order and h != "objectType"], key=str.lower)
+    ordered = [h for h in preferred_order if h in header_set]
+    # Ensure objectType is present as column 4
+    ordered.append("objectType")
+    ordered.extend(remaining)
     return ordered
 
 
@@ -101,6 +105,7 @@ def convert_txedge_to_csv_with_id(
 
             # Stream row
             flat_stream = _flatten_to_last_keys(stream, {})
+            flat_stream["objectType"] = "Stream"
             writer.writerow([flat_stream.get(h, "") for h in headers])
 
             # Matching sources
@@ -110,6 +115,7 @@ def convert_txedge_to_csv_with_id(
                 if source.get("stream") != stream_id:
                     continue
                 flat_source = _flatten_to_last_keys(source, {})
+                flat_source["objectType"] = "Source"
                 writer.writerow([flat_source.get(h, "") for h in headers])
 
             # Matching outputs
@@ -119,6 +125,7 @@ def convert_txedge_to_csv_with_id(
                 if output.get("stream") != stream_id:
                     continue
                 flat_output = _flatten_to_last_keys(output, {})
+                flat_output["objectType"] = "Output"
                 writer.writerow([flat_output.get(h, "") for h in headers])
 
 
