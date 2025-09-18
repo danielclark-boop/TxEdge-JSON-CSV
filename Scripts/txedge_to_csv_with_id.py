@@ -27,12 +27,18 @@ def _flatten_to_last_keys(obj: Any, out: Optional[Dict[str, str]] = None) -> Dic
     if isinstance(obj, dict):
         # Prefer processing direct, simple keys first
         for key, value in obj.items():
+            if key == "state":
+                # Skip massive/non-editable state blocks entirely
+                continue
             if isinstance(value, (dict, list)):
                 continue
             if key not in out:
                 out[key] = _to_str(value)
         # Then recursively process nested dicts and lists
         for key, value in obj.items():
+            if key == "state":
+                # Skip recursion into state
+                continue
             if isinstance(value, dict):
                 _flatten_to_last_keys(value, out)
             elif isinstance(value, list):
