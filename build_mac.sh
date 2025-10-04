@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# === Config ===
+# Paths
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SCRIPTS_DIR="$PROJECT_ROOT/Scripts"
+ENTRY="$SCRIPTS_DIR/txedge_gui.py"
 ICON_PATH="$PROJECT_ROOT/Scripts/app.icns"   # <- put your .icns here if you want a custom icon
 
 # Create virtual environment in .venv if not exists
@@ -15,11 +18,6 @@ source .venv/bin/activate
 # Upgrade pip & install pyinstaller
 pip install --upgrade pip
 pip install pyinstaller
-
-# Paths
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-SCRIPTS_DIR="$PROJECT_ROOT/Scripts"
-ENTRY="$SCRIPTS_DIR/txedge_gui.py"
 
 # PyInstaller args
 ARGS=(
