@@ -17,3 +17,6 @@ build/
 # PyInstaller
 *.spec
 
+# Secrets/config
+Scripts/site_env_config.json
+
