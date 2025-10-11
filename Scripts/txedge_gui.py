@@ -121,11 +121,14 @@ def _update_script_mapping() -> None:
 def _ensure_environment_structure() -> None:
     """Ensure TDP/D2C/FTS and output subfolders exist under PROJECT_ROOT."""
     try:
-        for env_name in ENV_FOLDERS:
-            env_dir = os.path.join(PROJECT_ROOT, env_name)
-            os.makedirs(env_dir, exist_ok=True)
-            os.makedirs(os.path.join(env_dir, "StreamInfo-CSVs"), exist_ok=True)
-            os.makedirs(os.path.join(env_dir, "Input-Output-CSVs"), exist_ok=True)
+        # Create site-aware structure under Sites/<Site>/<Env>/...
+        sites = SITE_OPTIONS if SITE_OPTIONS else ["Pico", "Tempe"]
+        for site_name in sites:
+            for env_name in ENV_FOLDERS:
+                base_dir = os.path.join(PROJECT_ROOT, "Sites", site_name, env_name)
+                os.makedirs(base_dir, exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "StreamInfo-CSVs"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Input-Output-CSVs"), exist_ok=True)
     except Exception:
         # Non-fatal: permissions or other issues should not block app startup
         pass
