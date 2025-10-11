@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 # Local import
+import weaver
 from weaver import Core
 
 
@@ -64,15 +65,11 @@ def fetch_edges_configs(cores: List[str], token: str, verify_https: bool, delay_
         edges = core.GetEdges(jsonQuery="online=true&limit=-1", enableCache=False)
     _log(f"Found {len(edges)} edges", log_file_path, log_to_console)
     for edge in edges:
-        try:
-            _log(f"Fetching config for edge: {edge.name} ({edge._id})", log_file_path, log_to_console)
-            resp = core.GetEdgeById(edge._id, enableCache=False)
-            raw = json.loads(resp.__repr__()) if hasattr(resp, "__repr__") else json.loads(resp.__str__()) if hasattr(resp, "__str__") else None
-        except Exception:
-            # Fallback to API response text
-            api_resp = core.GetEdgeById(edge._id)
-            raw_text = api_resp.text
-            raw = json.loads(raw_text)
+        _log(f"Fetching config for edge: {edge.name} ({edge._id})", log_file_path, log_to_console)
+        # Use vendor API directly to get full config including configuredStreams/Sources/Outputs
+        api_resp = weaver.weaverApi.GetEdgeById(core, edge._id)
+        raw_text = api_resp.text
+        raw = json.loads(raw_text)
 
         # Save mapping of edge->core
         edge_core_map[edge._id] = core.coreAddress
