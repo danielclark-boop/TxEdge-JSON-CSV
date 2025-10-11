@@ -15,6 +15,8 @@ version = "0.22.5" # Weaver.Py version
 validateConfigurations = True # Whether to perform basic config validation
 quitOnError = True # Whether to quit when an error is raised within weaverError by checkForError
 increasedErrorMessaging = True # Whether to log more errors when an error is flagged
+REQUEST_CONNECT_TIMEOUT_SECONDS = 5
+REQUEST_READ_TIMEOUT_SECONDS = 30
 
 # weaverError class - for raising exceptions
 class weaverError:
@@ -127,27 +129,27 @@ class weaverNet:
         return {'Authorization':'Bearer ' + token}
 
     def AUTH(url:str, req: dict, verifyHTTPS: bool = True, delay: int = 10) -> str: # This is just a POST request, but without the token.
-        response = requests.post(url, json=req, verify=verifyHTTPS)
+        response = requests.post(url, json=req, verify=verifyHTTPS, timeout=(REQUEST_CONNECT_TIMEOUT_SECONDS, REQUEST_READ_TIMEOUT_SECONDS))
         sleep(delay/1000)
         return response.text
 
     def POST(url:str, token:str, req:dict, verifyHTTPS:bool = True, delay:int = 10) -> requests.Response: # HTTP POST Request
-        response = requests.post(url, headers=weaverNet.generateAuthHeaders(token), json=req, verify=verifyHTTPS)
+        response = requests.post(url, headers=weaverNet.generateAuthHeaders(token), json=req, verify=verifyHTTPS, timeout=(REQUEST_CONNECT_TIMEOUT_SECONDS, REQUEST_READ_TIMEOUT_SECONDS))
         sleep(delay/1000)
         return response
 
     def GET(url:str, token:str, verifyHTTPS:bool = True, delay:int = 10) -> requests.Response: # HTTP GET Request
-        response = requests.get(url, headers=weaverNet.generateAuthHeaders(token), verify=verifyHTTPS)
+        response = requests.get(url, headers=weaverNet.generateAuthHeaders(token), verify=verifyHTTPS, timeout=(REQUEST_CONNECT_TIMEOUT_SECONDS, REQUEST_READ_TIMEOUT_SECONDS))
         sleep(delay/1000)
         return response
 
     def PUT(url:str, token:str, req:dict, verifyHTTPS:bool = True, delay:int = 10) -> requests.Response: # HTTP PUT Request
-        response = requests.put(url, headers=weaverNet.generateAuthHeaders(token), json=req, verify=verifyHTTPS)
+        response = requests.put(url, headers=weaverNet.generateAuthHeaders(token), json=req, verify=verifyHTTPS, timeout=(REQUEST_CONNECT_TIMEOUT_SECONDS, REQUEST_READ_TIMEOUT_SECONDS))
         sleep(delay/1000)
         return response
     
     def DELETE(url:str, token:str, verifyHTTPS:bool = True, delay:int = 10) -> requests.Response: # HTTP DELETE Request
-        response = requests.delete(url, headers=weaverNet.generateAuthHeaders(token), verify=verifyHTTPS)
+        response = requests.delete(url, headers=weaverNet.generateAuthHeaders(token), verify=verifyHTTPS, timeout=(REQUEST_CONNECT_TIMEOUT_SECONDS, REQUEST_READ_TIMEOUT_SECONDS))
         sleep(delay/1000)
         return response
 

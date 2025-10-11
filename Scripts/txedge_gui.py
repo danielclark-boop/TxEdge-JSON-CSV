@@ -249,7 +249,8 @@ class TxEdgeGUI(tk.Tk):
                 target_dir = os.path.join(PROJECT_ROOT, "Sites", site, env)
                 os.makedirs(target_dir, exist_ok=True)
                 log_path = os.path.join(PROJECT_ROOT, "weaver_fetch.log") if self.debug_var.get() else None
-                result = fetch_edges_configs(cores=cores, token=token, verify_https=True, delay_ms=10, output_dir=target_dir, log_to_console=self.debug_var.get(), log_file_path=log_path)
+                verify_https = SITE_ENV_CONFIG[site][env].get("verifyHTTPS", True)
+                result = fetch_edges_configs(cores=cores, token=token, verify_https=verify_https, delay_ms=10, output_dir=target_dir, log_to_console=self.debug_var.get(), log_file_path=log_path)
                 saved = result.get("saved", [])
                 self.after(0, lambda: messagebox.showinfo("Fetch complete", f"Saved {len(saved)} edge configs to:\n{target_dir}"))
             except Exception as exc2:

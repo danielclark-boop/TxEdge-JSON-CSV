@@ -51,7 +51,17 @@ def fetch_edges_configs(cores: List[str], token: str, verify_https: bool, delay_
     edge_core_map: Dict[str, str] = {}
 
     _log("Fetching edges: online=true&limit=-1", log_file_path, log_to_console)
-    edges = core.GetEdges(jsonQuery="online=true&limit=-1", enableCache=False)
+    try:
+        edges = core.GetEdges(jsonQuery="online=true&limit=-1", enableCache=False)
+    except Exception as e:
+        _log(f"Edge fetch failed: {e}", log_file_path, log_to_console)
+        # Try next cores if available
+        remaining = [c for c in cores if c != core.coreAddress]
+        if not remaining:
+            raise
+        _log("Retrying with next core...", log_file_path, log_to_console)
+        core = _try_connect_core(remaining, token, verify_https=verify_https, delay_ms=delay_ms, log_file=log_file_path, console=log_to_console)
+        edges = core.GetEdges(jsonQuery="online=true&limit=-1", enableCache=False)
     _log(f"Found {len(edges)} edges", log_file_path, log_to_console)
     for edge in edges:
         try:
