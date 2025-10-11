@@ -70,6 +70,12 @@ def fetch_edges_configs(cores: List[str], token: str, verify_https: bool, delay_
         api_resp = weaver.weaverApi.GetEdgeById(core, edge._id)
         raw_text = api_resp.text
         raw = json.loads(raw_text)
+        # Persist only the key sections requested by downstream tools
+        structured = {
+            "configuredStreams": raw.get("configuredStreams", []),
+            "configuredSources": raw.get("configuredSources", []),
+            "configuredOutputs": raw.get("configuredOutputs", []),
+        }
 
         # Save mapping of edge->core
         edge_core_map[edge._id] = core.coreAddress
@@ -79,7 +85,7 @@ def fetch_edges_configs(cores: List[str], token: str, verify_https: bool, delay_
         base_no_ext = f"{edge_name}-config"
         path = os.path.join(output_dir, f"{base_no_ext}.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(raw, f, indent=2)
+            json.dump(structured, f, indent=2)
         saved_paths.append(path)
         _log(f"Saved: {path}", log_file_path, log_to_console)
 
