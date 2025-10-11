@@ -5,6 +5,7 @@ import tkinter.font as tkfont
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+import json
 
 # Make sibling scripts importable and import conversion functions
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,9 +30,21 @@ SCRIPT_LABEL_TO_FUNC = {
     "Input/Output": convert_txedge_to_csv,
 }
 
+# Load site/env configuration for Core addresses and tokens
+def _load_site_env_config() -> dict:
+    cfg_path = os.path.join(SCRIPTS_DIR, "site_env_config.json")
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
-def list_json_files(env_folder: str) -> list:
-    env_path = os.path.join(PROJECT_ROOT, env_folder)
+SITE_ENV_CONFIG = _load_site_env_config()
+SITE_OPTIONS = sorted(list(SITE_ENV_CONFIG.keys())) if SITE_ENV_CONFIG else ["Pico", "Tempe"]
+
+
+def list_json_files(site_folder: str, env_folder: str) -> list:
+    env_path = os.path.join(PROJECT_ROOT, "Sites", site_folder, env_folder)
     try:
         files = sorted(
             [f for f in os.listdir(env_path) if f.lower().endswith(".json")]
@@ -136,61 +149,115 @@ class TxEdgeGUI(tk.Tk):
         container = ttk.Frame(self, padding=16)
         container.grid(row=0, column=0, sticky="nsew")
 
+        # Site selector
+        ttk.Label(container, text="Site").grid(row=0, column=0, sticky="w")
+        self.site_var = tk.StringVar(value=(SITE_OPTIONS[0] if SITE_OPTIONS else ""))
+        self.site_combo = ttk.Combobox(container, textvariable=self.site_var, values=SITE_OPTIONS, state="readonly", width=int(round(30 * scale_factor)))
+        self.site_combo.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self.site_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_json_options())
+
         # TechEx Environment
-        ttk.Label(container, text="TechEx Environment").grid(row=0, column=0, sticky="w")
+        ttk.Label(container, text="TechEx Environment").grid(row=2, column=0, sticky="w")
         self.env_var = tk.StringVar(value=ENV_FOLDERS[0])
         self.env_combo = ttk.Combobox(container, textvariable=self.env_var, values=ENV_FOLDERS, state="readonly", width=int(round(30 * scale_factor)))
-        self.env_combo.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self.env_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
         self.env_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_json_options())
 
         # Script
-        ttk.Label(container, text="Script").grid(row=2, column=0, sticky="w")
+        ttk.Label(container, text="Script").grid(row=4, column=0, sticky="w")
         self.script_var = tk.StringVar(value="Stream Information")
         self.script_combo = ttk.Combobox(container, textvariable=self.script_var, values=list(SCRIPT_LABEL_TO_FUNC.keys()), state="readonly", width=int(round(30 * scale_factor)))
-        self.script_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
+        self.script_combo.grid(row=5, column=0, sticky="ew", pady=(0, 8))
 
         # File Label (JSON/CSV depending on script)
         self.file_label = ttk.Label(container, text="JSON File")
-        self.file_label.grid(row=4, column=0, sticky="w")
+        self.file_label.grid(row=6, column=0, sticky="w")
         refresh_btn = ttk.Button(container, text="Refresh", command=self._refresh_json_options)
-        refresh_btn.grid(row=4, column=1, sticky="w", padx=(8, 0))
+        refresh_btn.grid(row=6, column=1, sticky="w", padx=(8, 0))
         self.json_var = tk.StringVar(value="")
         self.json_combo = ttk.Combobox(container, textvariable=self.json_var, values=[], state="readonly", width=int(round(50 * scale_factor)))
-        self.json_combo.grid(row=5, column=0, sticky="ew", pady=(0, 12))
+        self.json_combo.grid(row=7, column=0, sticky="ew", pady=(0, 12))
 
         # Convert all checkbox
         self.convert_all_var = tk.BooleanVar(value=False)
         self.convert_all_checkbox = ttk.Checkbutton(container, text="Convert ALL TechEx JSON Files", variable=self.convert_all_var)
-        self.convert_all_checkbox.grid(row=6, column=0, sticky="w", pady=(0, 8))
+        self.convert_all_checkbox.grid(row=8, column=0, sticky="w", pady=(0, 8))
 
         # Progress bar and active file label (shown during batch conversions)
         self.progress_var = tk.IntVar(value=0)
         self.progress = ttk.Progressbar(container, orient="horizontal", mode="determinate", maximum=0, variable=self.progress_var)
-        self.progress.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(20, 0))
+        self.progress.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(20, 0))
         self.active_file_var = tk.StringVar(value="")
         self.active_file_label = ttk.Label(container, textvariable=self.active_file_var, foreground="#555")
-        self.active_file_label.grid(row=9, column=0, columnspan=2, sticky="w")
+        self.active_file_label.grid(row=11, column=0, columnspan=2, sticky="w")
 
         # Run button
         self.run_button = ttk.Button(container, text="Run", command=self.on_run_clicked)
-        self.run_button.grid(row=7, column=0, sticky="ew")
+        self.run_button.grid(row=9, column=0, sticky="ew")
         self.open_folder_button = ttk.Button(container, text="Open Output Folder", command=self.on_open_output_folder)
-        self.open_folder_button.grid(row=7, column=1, sticky="ew")
+        self.open_folder_button.grid(row=9, column=1, sticky="ew")
+
+        # Fetch button
+        self.fetch_button = ttk.Button(container, text="Fetch from Core", command=self.on_fetch_from_core)
+        self.fetch_button.grid(row=12, column=0, columnspan=2, sticky="ew", pady=(8, 0))
 
         # Status
         self.status_var = tk.StringVar(value="")
         self.status_label = ttk.Label(container, textvariable=self.status_var, foreground="#555")
-        self.status_label.grid(row=10, column=0, sticky="w", pady=(8, 0))
+        self.status_label.grid(row=13, column=0, sticky="w", pady=(8, 0))
 
         # React to script changes to update labels and file lists
         self.script_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_json_options())
 
         self._refresh_json_options()
 
+    def on_fetch_from_core(self) -> None:
+        site = getattr(self, 'site_var', tk.StringVar(value="")).get()
+        env = self.env_var.get()
+        if not SITE_ENV_CONFIG:
+            messagebox.showerror("Missing config", "Expected Scripts/site_env_config.json with site/env core addresses and tokens.")
+            return
+        if site not in SITE_ENV_CONFIG:
+            messagebox.showerror("Invalid Site", f"Site '{site}' not found in configuration.")
+            return
+        if env not in SITE_ENV_CONFIG[site]:
+            messagebox.showerror("Invalid Environment", f"Environment '{env}' not found under site '{site}' in configuration.")
+            return
+
+        try:
+            from weaver_fetch import fetch_edges_configs
+        except Exception as exc:
+            messagebox.showerror("Missing dependency", f"Failed to import weaver_fetch.py: {exc}")
+            return
+
+        self.status_var.set("Fetching from Core...")
+        self.run_button.configure(state=tk.DISABLED)
+        self.fetch_button.configure(state=tk.DISABLED)
+
+        def worker() -> None:
+            try:
+                cores = SITE_ENV_CONFIG[site][env].get("cores", [])
+                token = SITE_ENV_CONFIG[site][env].get("token", "")
+                target_dir = os.path.join(PROJECT_ROOT, "Sites", site, env)
+                os.makedirs(target_dir, exist_ok=True)
+                result = fetch_edges_configs(cores=cores, token=token, verify_https=True, delay_ms=10, output_dir=target_dir)
+                saved = result.get("saved", [])
+                self.after(0, lambda: messagebox.showinfo("Fetch complete", f"Saved {len(saved)} edge configs to:\n{target_dir}"))
+            except Exception as exc2:
+                self.after(0, lambda: messagebox.showerror("Fetch failed", str(exc2)))
+            finally:
+                self.after(0, lambda: self.run_button.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.fetch_button.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.status_var.set(""))
+                self.after(0, self._refresh_json_options)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _refresh_json_options(self) -> None:
         env_folder = self.env_var.get()
+        site_folder = self.site_var.get()
         script_label = self.script_var.get()
-        files = list_json_files(env_folder)
+        files = list_json_files(site_folder, env_folder)
         self.file_label.configure(text="JSON File")
         self.convert_all_checkbox.configure(text="Convert ALL TechEx JSON Files")
         self.json_combo["values"] = files
@@ -238,14 +305,14 @@ class TxEdgeGUI(tk.Tk):
                 subfolder = "StreamInfo-CSVs"
             else:
                 subfolder = "Input-Output-CSVs"
-            env_output_dir = os.path.join(PROJECT_ROOT, env_folder, subfolder)
+            env_output_dir = os.path.join(PROJECT_ROOT, "Sites", self.site_var.get(), env_folder, subfolder)
             os.makedirs(env_output_dir, exist_ok=True)
             ext = ".csv"
             return os.path.join(env_output_dir, f"{output_base}{ext}")
 
         # Batch or single
         if self.convert_all_var.get():
-            all_files = list_json_files(env_folder)
+            all_files = list_json_files(self.site_var.get(), env_folder)
             none_msg = f"No JSON files found in '{env_folder}'."
             if not all_files:
                 messagebox.showerror("Error", none_msg)
@@ -264,7 +331,7 @@ class TxEdgeGUI(tk.Tk):
                 failure_msgs = []
                 for idx, fname in enumerate(all_files, start=1):
                     self.after(0, lambda f=fname: self.active_file_var.set(f"Converting: {f}"))
-                    input_abs_path = os.path.join(PROJECT_ROOT, env_folder, fname)
+                    input_abs_path = os.path.join(PROJECT_ROOT, "Sites", self.site_var.get(), env_folder, fname)
                     output_abs_path = make_output_path(fname)
                     try:
                         convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
@@ -291,7 +358,7 @@ class TxEdgeGUI(tk.Tk):
 
         # Single file path (synchronous)
         try:
-            input_abs_path = os.path.join(PROJECT_ROOT, env_folder, json_file_name)
+            input_abs_path = os.path.join(PROJECT_ROOT, "Sites", self.site_var.get(), env_folder, json_file_name)
             if not os.path.exists(input_abs_path):
                 messagebox.showerror("Error", f"Input JSON not found: {input_abs_path}")
                 self.status_var.set("Failed.")
@@ -322,7 +389,7 @@ class TxEdgeGUI(tk.Tk):
         else:
             subfolder = "Input-Output-CSVs"
 
-        target_dir = os.path.join(PROJECT_ROOT, env_folder, subfolder)
+        target_dir = os.path.join(PROJECT_ROOT, "Sites", self.site_var.get(), env_folder, subfolder)
         try:
             os.makedirs(target_dir, exist_ok=True)
         except Exception as exc:

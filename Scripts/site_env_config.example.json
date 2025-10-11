@@ -1,0 +1,14 @@
+{
+  "Pico": {
+    "TDP": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
+    "D2C": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
+    "FTS": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" }
+  },
+  "Tempe": {
+    "TDP": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
+    "D2C": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
+    "FTS": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" }
+  }
+}
+
+
