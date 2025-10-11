@@ -19,14 +19,14 @@ def _log(msg: str, log_file: Optional[str], console: bool) -> None:
             pass
 
 
-def _try_connect_core(addresses: List[str], token: str, verify_https: bool = True, delay_ms: int = 10, log_file: Optional[str] = None, console: bool = False) -> Core:
+def _try_connect_core(addresses: List[str], token: str, verify_https: bool = True, delay_ms: int = 10, log_file: Optional[str] = None, console: bool = False) -> tuple[Core, str]:
     last_exc = None
     for addr in addresses:
         try:
             _log(f"Trying core: {addr}", log_file, console)
             core = Core(address=addr, token=token, verifyHTTPS=verify_https, defaultCallDelayMillis=delay_ms, bypassHttpConfirmation=True)
             _log(f"Connected. Core version: {core.version}", log_file, console)
-            return core
+            return core, addr
         except Exception as e:
             last_exc = e
             _log(f"Failed core {addr}: {e}", log_file, console)
@@ -45,7 +45,7 @@ def fetch_edges_configs(cores: List[str], token: str, verify_https: bool, delay_
     """
     if not cores:
         raise ValueError("No core addresses provided")
-    core = _try_connect_core(cores, token, verify_https=verify_https, delay_ms=delay_ms, log_file=log_file_path, console=log_to_console)
+    core, used_addr = _try_connect_core(cores, token, verify_https=verify_https, delay_ms=delay_ms, log_file=log_file_path, console=log_to_console)
 
     saved_paths: List[str] = []
     edge_core_map: Dict[str, str] = {}
@@ -56,11 +56,11 @@ def fetch_edges_configs(cores: List[str], token: str, verify_https: bool, delay_
     except Exception as e:
         _log(f"Edge fetch failed: {e}", log_file_path, log_to_console)
         # Try next cores if available
-        remaining = [c for c in cores if c != core.coreAddress]
+        remaining = [c for c in cores if c != used_addr]
         if not remaining:
             raise
         _log("Retrying with next core...", log_file_path, log_to_console)
-        core = _try_connect_core(remaining, token, verify_https=verify_https, delay_ms=delay_ms, log_file=log_file_path, console=log_to_console)
+        core, used_addr = _try_connect_core(remaining, token, verify_https=verify_https, delay_ms=delay_ms, log_file=log_file_path, console=log_to_console)
         edges = core.GetEdges(jsonQuery="online=true&limit=-1", enableCache=False)
     _log(f"Found {len(edges)} edges", log_file_path, log_to_console)
     for edge in edges:
