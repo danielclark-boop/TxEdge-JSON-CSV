@@ -200,9 +200,14 @@ class TxEdgeGUI(tk.Tk):
         self.open_folder_button = ttk.Button(container, text="Open Output Folder", command=self.on_open_output_folder)
         self.open_folder_button.grid(row=9, column=1, sticky="ew")
 
+        # Debug mode
+        self.debug_var = tk.BooleanVar(value=False)
+        self.debug_checkbox = ttk.Checkbutton(container, text="Debug (console + log)", variable=self.debug_var)
+        self.debug_checkbox.grid(row=12, column=0, sticky="w")
+
         # Fetch button
         self.fetch_button = ttk.Button(container, text="Fetch from Core", command=self.on_fetch_from_core)
-        self.fetch_button.grid(row=12, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        self.fetch_button.grid(row=12, column=1, sticky="ew", pady=(8, 0))
 
         # Status
         self.status_var = tk.StringVar(value="")
@@ -243,7 +248,8 @@ class TxEdgeGUI(tk.Tk):
                 token = SITE_ENV_CONFIG[site][env].get("token", "")
                 target_dir = os.path.join(PROJECT_ROOT, "Sites", site, env)
                 os.makedirs(target_dir, exist_ok=True)
-                result = fetch_edges_configs(cores=cores, token=token, verify_https=True, delay_ms=10, output_dir=target_dir)
+                log_path = os.path.join(PROJECT_ROOT, "weaver_fetch.log") if self.debug_var.get() else None
+                result = fetch_edges_configs(cores=cores, token=token, verify_https=True, delay_ms=10, output_dir=target_dir, log_to_console=self.debug_var.get(), log_file_path=log_path)
                 saved = result.get("saved", [])
                 self.after(0, lambda: messagebox.showinfo("Fetch complete", f"Saved {len(saved)} edge configs to:\n{target_dir}"))
             except Exception as exc2:
