@@ -3,7 +3,7 @@ import os
 import sys
 import tkinter.font as tkfont
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import threading
 import json
 
@@ -149,8 +149,19 @@ class TxEdgeGUI(tk.Tk):
         except Exception:
             pass
 
+        # Mode selector row
+        mode_frame = ttk.Frame(self, padding=(16, 16))
+        mode_frame.grid(row=0, column=0, sticky="ew")
+        mode_frame.grid_columnconfigure(0, weight=1)
+        mode_frame.grid_columnconfigure(1, weight=1)
+        self.mode_var = tk.StringVar(value="")
+        self.export_button = ttk.Button(mode_frame, text="Export", command=self.on_select_export)
+        self.import_button = ttk.Button(mode_frame, text="Import", command=self.on_select_import)
+        self.export_button.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        self.import_button.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+
         container = ttk.Frame(self, padding=16)
-        container.grid(row=0, column=0, sticky="nsew")
+        container.grid(row=1, column=0, sticky="nsew")
 
         # Site selector
         ttk.Label(container, text="Site").grid(row=0, column=0, sticky="w")
@@ -166,8 +177,8 @@ class TxEdgeGUI(tk.Tk):
         self.env_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
         self.env_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_json_options())
 
-        # Script
-        ttk.Label(container, text="Script").grid(row=4, column=0, sticky="w")
+        # Conversion Type
+        ttk.Label(container, text="Conversion Type").grid(row=4, column=0, sticky="w")
         self.script_var = tk.StringVar(value="Stream Information")
         self.script_combo = ttk.Combobox(container, textvariable=self.script_var, values=list(SCRIPT_LABEL_TO_FUNC.keys()), state="readonly", width=int(round(30 * scale_factor)))
         self.script_combo.grid(row=5, column=0, sticky="ew", pady=(0, 8))
@@ -214,10 +225,28 @@ class TxEdgeGUI(tk.Tk):
         self.status_label = ttk.Label(container, textvariable=self.status_var, foreground="#555")
         self.status_label.grid(row=13, column=0, sticky="w", pady=(8, 0))
 
-        # React to script changes to update labels and file lists
+        # React to conversion type changes to update file list
         self.script_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_json_options())
 
-        self._refresh_json_options()
+        # Track and hide content until a mode is selected
+        self._shared_widgets = [self.progress, self.active_file_label, self.run_button, self.status_label]
+        self._export_widgets = [
+            # Site/env and export-specific controls
+            self.site_combo, self.env_combo,
+            self.script_combo,
+            self.file_label, refresh_btn, self.json_combo,
+            self.convert_all_checkbox,
+            self.debug_checkbox, self.fetch_button,
+            self.open_folder_button,
+        ]
+        # Include labels for site/env/conversion
+        # Retrieve label widgets via grid_slaves filtering by row/column
+        for w in container.grid_slaves():
+            if isinstance(w, ttk.Label) and w.cget("text") in ("Site", "TechEx Environment", "Conversion Type"):
+                self._export_widgets.append(w)
+
+        self._hide_widgets(self._export_widgets + self._shared_widgets)
+        self._import_frame = None
 
     def on_fetch_from_core(self) -> None:
         site = getattr(self, 'site_var', tk.StringVar(value="")).get()
@@ -263,7 +292,66 @@ class TxEdgeGUI(tk.Tk):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _hide_widgets(self, widgets: list) -> None:
+        for w in widgets:
+            try:
+                w.grid_remove()
+            except Exception:
+                pass
+
+    def _show_widgets(self, widgets: list) -> None:
+        for w in widgets:
+            try:
+                w.grid()
+            except Exception:
+                pass
+
+    def on_select_export(self) -> None:
+        self.mode_var.set("export")
+        # Hide import UI if present
+        if self._import_frame is not None:
+            try:
+                self._import_frame.grid_remove()
+            except Exception:
+                pass
+        self._show_widgets(self._export_widgets + self._shared_widgets)
+        self._refresh_json_options()
+
+    def on_select_import(self) -> None:
+        self.mode_var.set("import")
+        # Password gate
+        pw = simpledialog.askstring("Authentication", "Enter Import password:", show='*')
+        if pw != "RF36111":
+            messagebox.showerror("Access denied", "Incorrect password.")
+            self.mode_var.set("")
+            return
+        # Hide export UI, show shared + import frame
+        self._hide_widgets(self._export_widgets)
+        self._show_widgets(self._shared_widgets)
+        if self._import_frame is None:
+            self._build_import_ui(parent=self.children[list(self.children.keys())[1]])
+        try:
+            self._import_frame.grid()
+        except Exception:
+            pass
+
+    def _build_import_ui(self, parent: ttk.Frame) -> None:
+        # Build minimal import controls: Site/Env selectors for import context
+        frame = ttk.Frame(parent)
+        frame.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(frame, text="Site").grid(row=0, column=0, sticky="w")
+        self.import_site_var = tk.StringVar(value=self.site_var.get())
+        self.import_site_combo = ttk.Combobox(frame, textvariable=self.import_site_var, values=SITE_OPTIONS, state="readonly")
+        self.import_site_combo.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(frame, text="TechEx Environment").grid(row=2, column=0, sticky="w")
+        self.import_env_var = tk.StringVar(value=self.env_var.get())
+        self.import_env_combo = ttk.Combobox(frame, textvariable=self.import_env_var, values=ENV_FOLDERS, state="readonly")
+        self.import_env_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
+        self._import_frame = frame
+
     def _refresh_json_options(self) -> None:
+        if self.mode_var.get() != "export":
+            return
         env_folder = self.env_var.get()
         site_folder = self.site_var.get()
         script_label = self.script_var.get()
