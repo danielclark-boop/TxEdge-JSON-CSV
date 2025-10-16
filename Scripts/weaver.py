@@ -1673,6 +1673,7 @@ class Source:
         self.monitorOnly: bool = data.get("monitorOnly") # <bool> Whether this source in an XOROMT-enabled stream should be used for monitoring only
         self.name: str = data.get("name") # <str> The name of the source
         self.id: str = data.get("id") # <str> The ID of the source
+        self.tags: str = data.get("tags") # <str> Optional tags/labels for the source
         self.paused: bool = data.get("paused", False) # <bool> Whether the source is paused
         self.active: bool = data.get("active", False) # <bool> Whether the source is active
         self.etr290Enabled: bool = data.get("etr290Enabled", False) # <bool> Whether ETR290 monitoring is enabled
@@ -1703,7 +1704,8 @@ class Source:
             "etr290Enabled": self.etr290Enabled,
             "stopped": self.stopped,
             "exhausted": self.exhausted,
-            "passive": self.passive
+            "passive": self.passive,
+            "tags": self.tags
         }, type(self))
         return weaverValidation.ValidateConfiguration(weaverNet.cleanJson(my_json), type(self))
 
