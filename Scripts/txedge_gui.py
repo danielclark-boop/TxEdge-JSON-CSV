@@ -133,9 +133,9 @@ def _ensure_environment_structure() -> None:
                 os.makedirs(base_dir, exist_ok=True)
                 os.makedirs(os.path.join(base_dir, "StreamInfo-CSVs"), exist_ok=True)
                 os.makedirs(os.path.join(base_dir, "Input-Output-CSVs"), exist_ok=True)
-                os.makedirs(os.path.join(base_dir, "Editable CSVs", "Streams"), exist_ok=True)
-                os.makedirs(os.path.join(base_dir, "Editable CSVs", "Sources"), exist_ok=True)
-                os.makedirs(os.path.join(base_dir, "Editable CSVs", "Outputs"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Editable-CSVs", "Streams"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Editable-CSVs", "Sources"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Editable-CSVs", "Outputs"), exist_ok=True)
     except Exception:
         # Non-fatal: permissions or other issues should not block app startup
         pass
@@ -409,13 +409,13 @@ class TxEdgeGUI(tk.Tk):
                 subfolder = "Input-Output-CSVs"
             elif script_label == "Stream Edit":
                 output_base = trimmed_base
-                subfolder = os.path.join("Editable CSVs", "Streams")
+                subfolder = os.path.join("Editable-CSVs", "Streams")
             elif script_label == "Input Edit":
                 output_base = trimmed_base
-                subfolder = os.path.join("Editable CSVs", "Sources")
+                subfolder = os.path.join("Editable-CSVs", "Sources")
             elif script_label == "Output Edit":
                 output_base = trimmed_base
-                subfolder = os.path.join("Editable CSVs", "Outputs")
+                subfolder = os.path.join("Editable-CSVs", "Outputs")
             else:
                 output_base = trimmed_base
                 subfolder = "Input-Output-CSVs"
@@ -503,11 +503,11 @@ class TxEdgeGUI(tk.Tk):
         elif script_label == "Input/Output":
             subfolder = "Input-Output-CSVs"
         elif script_label == "Stream Edit":
-            subfolder = os.path.join("Editable CSVs", "Streams")
+            subfolder = os.path.join("Editable-CSVs", "Streams")
         elif script_label == "Input Edit":
-            subfolder = os.path.join("Editable CSVs", "Sources")
+            subfolder = os.path.join("Editable-CSVs", "Sources")
         elif script_label == "Output Edit":
-            subfolder = os.path.join("Editable CSVs", "Outputs")
+            subfolder = os.path.join("Editable-CSVs", "Outputs")
         else:
             subfolder = "Input-Output-CSVs"
 
