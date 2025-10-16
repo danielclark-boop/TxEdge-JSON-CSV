@@ -74,10 +74,20 @@ def convert_input_edit(input_json_path: str, output_csv_path: str) -> None:
 	rows = data.get("configuredSources", [])
 	if not isinstance(rows, list):
 		rows = []
+	# Build stream id -> name map
+	streams = data.get("configuredStreams", [])
+	stream_id_to_name = {str(s.get("id")) if "id" in s else str(s.get("_id")): s.get("name", "") for s in streams if isinstance(s, dict)}
 	# Grouping: sort by 'stream' to keep like-stream items together
 	rows_sorted = sorted(rows, key=lambda r: str(r.get("stream", "")))
-	flat_rows = [_flatten_record(r) for r in rows_sorted]
-	columns = _collect_columns(flat_rows)
+	flat_rows = []
+	for r in rows_sorted:
+		fr = _flatten_record(r)
+		fr["streamName"] = stream_id_to_name.get(str(r.get("stream", "")), "")
+		flat_rows.append(fr)
+	# Columns: ensure id, streamName are first two
+	colset = _collect_columns(flat_rows)
+	rest = [c for c in colset if c not in ("id", "streamName")]
+	columns = ["id", "streamName", *rest]
 	with open(output_csv_path, "w", encoding="utf-8", newline="") as out:
 		writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore")
 		writer.writeheader()
@@ -92,9 +102,18 @@ def convert_output_edit(input_json_path: str, output_csv_path: str) -> None:
 	rows = data.get("configuredOutputs", [])
 	if not isinstance(rows, list):
 		rows = []
+	# Build stream id -> name map
+	streams = data.get("configuredStreams", [])
+	stream_id_to_name = {str(s.get("id")) if "id" in s else str(s.get("_id")): s.get("name", "") for s in streams if isinstance(s, dict)}
 	rows_sorted = sorted(rows, key=lambda r: str(r.get("stream", "")))
-	flat_rows = [_flatten_record(r) for r in rows_sorted]
-	columns = _collect_columns(flat_rows)
+	flat_rows = []
+	for r in rows_sorted:
+		fr = _flatten_record(r)
+		fr["streamName"] = stream_id_to_name.get(str(r.get("stream", "")), "")
+		flat_rows.append(fr)
+	colset = _collect_columns(flat_rows)
+	rest = [c for c in colset if c not in ("id", "streamName")]
+	columns = ["id", "streamName", *rest]
 	with open(output_csv_path, "w", encoding="utf-8", newline="") as out:
 		writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore")
 		writer.writeheader()
