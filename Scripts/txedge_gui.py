@@ -618,13 +618,14 @@ class TxEdgeGUI(tk.Tk):
         def worker() -> None:
             try:
                 core, used_addr = _connect_core(cores, token, verify_https, 10, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                logp = os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None
                 if itype == "Update Streams":
-                    summary = import_streams(csv_path, core, edge_id, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                    summary = import_streams(csv_path, core, edge_id, logp)
                 elif itype == "Update Inputs":
-                    summary = import_sources(csv_path, core, edge_id, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                    summary = import_sources(csv_path, core, edge_id, logp)
                 else:
-                    summary = import_outputs(csv_path, core, edge_id, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
-                self.after(0, lambda: messagebox.showinfo("Import complete", f"Created: {summary.get('created',0)}\nUpdated: {summary.get('updated',0)}\nFailed: {summary.get('failed',0)}"))
+                    summary = import_outputs(csv_path, core, edge_id, logp)
+                self.after(0, lambda: messagebox.showinfo("Import complete", f"Created: {summary.get('created',0)}\nUpdated: {summary.get('updated',0)}\nSkipped: {summary.get('skipped',0)}\nFailed: {summary.get('failed',0)}"))
             except Exception as exc:
                 self.after(0, lambda: messagebox.showerror("Import failed", str(exc)))
             finally:
