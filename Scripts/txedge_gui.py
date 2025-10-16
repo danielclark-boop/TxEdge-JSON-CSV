@@ -245,6 +245,17 @@ class TxEdgeGUI(tk.Tk):
             if isinstance(w, ttk.Label) and w.cget("text") in ("Site", "TechEx Environment", "Conversion Type"):
                 self._export_widgets.append(w)
 
+        # Lock window size to fully-rendered dimensions so it doesn't resize when toggling modes
+        try:
+            self.update_idletasks()
+            _w = self.winfo_width()
+            _h = self.winfo_height()
+            if _w > 1 and _h > 1:
+                self.minsize(_w, _h)
+                self.geometry(f"{_w}x{_h}")
+        except Exception:
+            pass
+
         self._hide_widgets(self._export_widgets + self._shared_widgets)
         self._import_frame = None
 
