@@ -19,6 +19,9 @@ except Exception:
     # If running in an unusual environment (e.g., frozen onefile), load later with a fallback
     convert_txedge_to_csv = None  # type: ignore
     convert_streams_sources = None  # type: ignore
+    convert_stream_edit = None  # type: ignore
+    convert_input_edit = None  # type: ignore
+    convert_output_edit = None  # type: ignore
 
 
 if getattr(sys, "frozen", False):
@@ -84,10 +87,13 @@ def _hide_windows_console_if_present() -> None:
 
 def _load_conversion_functions_from_meipass() -> None:
     """In frozen onefile builds, attempt to import converters from bundled data."""
-    global convert_txedge_to_csv, convert_streams_sources
+    global convert_txedge_to_csv, convert_streams_sources, convert_stream_edit, convert_input_edit, convert_output_edit
     if (
         (convert_txedge_to_csv is not None)
         and (convert_streams_sources is not None)
+        and (convert_stream_edit is not None)
+        and (convert_input_edit is not None)
+        and (convert_output_edit is not None)
     ):
         return
     base_dir = getattr(sys, "_MEIPASS", None)
@@ -111,6 +117,16 @@ def _load_conversion_functions_from_meipass() -> None:
                 module2 = importlib.util.module_from_spec(spec2)
                 spec2.loader.exec_module(module2)  # type: ignore[attr-defined]
                 convert_streams_sources = getattr(module2, "convert_streams_sources", None)
+        # editable_exports.py
+        ee_mod_path = os.path.join(base_dir, "Scripts", "editable_exports.py")
+        if (convert_stream_edit is None or convert_input_edit is None or convert_output_edit is None) and os.path.exists(ee_mod_path):
+            spec3 = importlib.util.spec_from_file_location("editable_exports", ee_mod_path)
+            if spec3 and spec3.loader:
+                module3 = importlib.util.module_from_spec(spec3)
+                spec3.loader.exec_module(module3)  # type: ignore[attr-defined]
+                convert_stream_edit = getattr(module3, "convert_stream_edit", None)
+                convert_input_edit = getattr(module3, "convert_input_edit", None)
+                convert_output_edit = getattr(module3, "convert_output_edit", None)
     except Exception:
         # Non-fatal; handled by UI error message later
         pass
@@ -119,7 +135,10 @@ def _load_conversion_functions_from_meipass() -> None:
 def _update_script_mapping() -> None:
     """Refresh mapping after late imports in frozen builds."""
     SCRIPT_LABEL_TO_FUNC["Stream Information"] = convert_streams_sources  # type: ignore[index]
-    SCRIPT_LABEL_TO_FUNC["Input/Output"] = convert_txedge_to_csv  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Input/Output Information"] = convert_txedge_to_csv  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Stream Edit"] = convert_stream_edit  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Input Edit"] = convert_input_edit  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Output Edit"] = convert_output_edit  # type: ignore[index]
 
 
 def _ensure_environment_structure() -> None:
