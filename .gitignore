@@ -20,3 +20,6 @@ build/
 # Secrets/config
 Scripts/site_env_config.json
 
+# Sample data
+samples/*.csv
+
