@@ -28,7 +28,7 @@ else:
 ENV_FOLDERS = ["TDP", "D2C", "FTS"]
 SCRIPT_LABEL_TO_FUNC = {
     "Stream Information": convert_streams_sources,
-    "Input/Output": convert_txedge_to_csv,
+    "Input/Output Information": convert_txedge_to_csv,
     "Stream Edit": convert_stream_edit,
     "Input Edit": convert_input_edit,
     "Output Edit": convert_output_edit,
@@ -404,7 +404,7 @@ class TxEdgeGUI(tk.Tk):
             if script_label == "Stream Information":
                 output_base = f"{trimmed_base}-StreamInfo"
                 subfolder = "StreamInfo-CSVs"
-            elif script_label == "Input/Output":
+            elif script_label == "Input/Output Information":
                 output_base = trimmed_base
                 subfolder = "Input-Output-CSVs"
             elif script_label == "Stream Edit":
@@ -500,7 +500,7 @@ class TxEdgeGUI(tk.Tk):
 
         if script_label == "Stream Information":
             subfolder = "StreamInfo-CSVs"
-        elif script_label == "Input/Output":
+        elif script_label == "Input/Output Information":
             subfolder = "Input-Output-CSVs"
         elif script_label == "Stream Edit":
             subfolder = os.path.join("Editable-CSVs", "Streams")

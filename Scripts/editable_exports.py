@@ -24,7 +24,10 @@ def _flatten(prefix: str, obj: Any, out: Dict[str, Any]) -> None:
 	"""Flatten nested dicts into dotted keys. Lists are JSON-serialized."""
 	if isinstance(obj, dict):
 		for k, v in obj.items():
-			key = f"{prefix}.{k}" if prefix else str(k)
+            # Skip any state.* keys entirely
+            if (not prefix and k == "state") or (prefix and prefix.split(".")[0] == "state"):
+                continue
+            key = f"{prefix}.{k}" if prefix else str(k)
 			if isinstance(v, dict):
 				_flatten(key, v, out)
 			else:
