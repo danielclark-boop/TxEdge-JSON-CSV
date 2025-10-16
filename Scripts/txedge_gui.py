@@ -408,13 +408,13 @@ class TxEdgeGUI(tk.Tk):
                 output_base = trimmed_base
                 subfolder = "Input-Output-CSVs"
             elif script_label == "Stream Edit":
-                output_base = trimmed_base
+                output_base = f"{trimmed_base}-Streams"
                 subfolder = os.path.join("Editable-CSVs", "Streams")
             elif script_label == "Input Edit":
-                output_base = trimmed_base
+                output_base = f"{trimmed_base}-Sources"
                 subfolder = os.path.join("Editable-CSVs", "Sources")
             elif script_label == "Output Edit":
-                output_base = trimmed_base
+                output_base = f"{trimmed_base}-Outputs"
                 subfolder = os.path.join("Editable-CSVs", "Outputs")
             else:
                 output_base = trimmed_base
