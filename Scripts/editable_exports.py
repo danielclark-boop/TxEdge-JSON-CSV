@@ -8,6 +8,9 @@ def _collect_columns(items: List[Dict[str, Any]]) -> List[str]:
 	seen = set()
 	for item in items:
 		for key in item.keys():
+			# Drop any 'state' columns entirely (and any dotted state.* just in case)
+			if key == "state" or str(key).startswith("state."):
+				continue
 			if key not in seen:
 				seen.add(key)
 				columns.append(key)
@@ -39,6 +42,9 @@ def _flatten(prefix: str, obj: Any, out: Dict[str, Any]) -> None:
 def _flatten_record(item: Dict[str, Any]) -> Dict[str, Any]:
 	flat: Dict[str, Any] = {}
 	for k, v in item.items():
+		# Drop the entire state subtree (even if it's not a dict)
+		if k == "state":
+			continue
 		if isinstance(v, dict):
 			_flatten(k, v, flat)
 		else:
