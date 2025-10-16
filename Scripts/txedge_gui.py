@@ -14,6 +14,7 @@ if SCRIPTS_DIR not in sys.path:
 try:
     from txedge_to_csv import convert_txedge_to_csv  # type: ignore
     from txedge_to_csv_streams_sources import convert_streams_sources  # type: ignore
+    from editable_exports import convert_stream_edit, convert_input_edit, convert_output_edit  # type: ignore
 except Exception:
     # If running in an unusual environment (e.g., frozen onefile), load later with a fallback
     convert_txedge_to_csv = None  # type: ignore
@@ -28,6 +29,9 @@ ENV_FOLDERS = ["TDP", "D2C", "FTS"]
 SCRIPT_LABEL_TO_FUNC = {
     "Stream Information": convert_streams_sources,
     "Input/Output": convert_txedge_to_csv,
+    "Stream Edit": convert_stream_edit,
+    "Input Edit": convert_input_edit,
+    "Output Edit": convert_output_edit,
 }
 
 # Load site/env configuration for Core addresses and tokens
@@ -129,6 +133,9 @@ def _ensure_environment_structure() -> None:
                 os.makedirs(base_dir, exist_ok=True)
                 os.makedirs(os.path.join(base_dir, "StreamInfo-CSVs"), exist_ok=True)
                 os.makedirs(os.path.join(base_dir, "Input-Output-CSVs"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Editable CSVs", "Streams"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Editable CSVs", "Sources"), exist_ok=True)
+                os.makedirs(os.path.join(base_dir, "Editable CSVs", "Outputs"), exist_ok=True)
     except Exception:
         # Non-fatal: permissions or other issues should not block app startup
         pass
@@ -396,12 +403,21 @@ class TxEdgeGUI(tk.Tk):
                 trimmed_base = base_no_ext
             if script_label == "Stream Information":
                 output_base = f"{trimmed_base}-StreamInfo"
+                subfolder = "StreamInfo-CSVs"
+            elif script_label == "Input/Output":
+                output_base = trimmed_base
+                subfolder = "Input-Output-CSVs"
+            elif script_label == "Stream Edit":
+                output_base = trimmed_base
+                subfolder = os.path.join("Editable CSVs", "Streams")
+            elif script_label == "Input Edit":
+                output_base = trimmed_base
+                subfolder = os.path.join("Editable CSVs", "Sources")
+            elif script_label == "Output Edit":
+                output_base = trimmed_base
+                subfolder = os.path.join("Editable CSVs", "Outputs")
             else:
                 output_base = trimmed_base
-            # Route to subfolder based on script
-            if script_label == "Stream Information":
-                subfolder = "StreamInfo-CSVs"
-            else:
                 subfolder = "Input-Output-CSVs"
             env_output_dir = os.path.join(PROJECT_ROOT, "Sites", self.site_var.get(), env_folder, subfolder)
             os.makedirs(env_output_dir, exist_ok=True)
@@ -484,6 +500,14 @@ class TxEdgeGUI(tk.Tk):
 
         if script_label == "Stream Information":
             subfolder = "StreamInfo-CSVs"
+        elif script_label == "Input/Output":
+            subfolder = "Input-Output-CSVs"
+        elif script_label == "Stream Edit":
+            subfolder = os.path.join("Editable CSVs", "Streams")
+        elif script_label == "Input Edit":
+            subfolder = os.path.join("Editable CSVs", "Sources")
+        elif script_label == "Output Edit":
+            subfolder = os.path.join("Editable CSVs", "Outputs")
         else:
             subfolder = "Input-Output-CSVs"
 
