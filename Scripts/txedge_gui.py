@@ -211,12 +211,13 @@ class TxEdgeGUI(tk.Tk):
 
         # File Label (JSON/CSV depending on script)
         self.file_label = ttk.Label(container, text="JSON File")
-        self.file_label.grid(row=6, column=0, sticky="w")
+        self.file_label.grid(row=6, column=0, sticky="w", pady=(12, 0))
         refresh_btn = ttk.Button(container, text="Refresh", command=self._refresh_json_options)
-        refresh_btn.grid(row=6, column=1, sticky="w", padx=(8, 0))
+        # Place Refresh at column 2 to allow Fetch button to sit to its left at column 1
+        refresh_btn.grid(row=6, column=2, sticky="w", padx=(8, 0))
         self.json_var = tk.StringVar(value="")
         self.json_combo = ttk.Combobox(container, textvariable=self.json_var, values=[], state="readonly", width=int(round(50 * scale_factor)))
-        self.json_combo.grid(row=7, column=0, sticky="ew", pady=(0, 12))
+        self.json_combo.grid(row=7, column=0, sticky="ew", pady=(4, 12))
 
         # Convert all checkbox
         self.convert_all_var = tk.BooleanVar(value=False)
@@ -242,9 +243,9 @@ class TxEdgeGUI(tk.Tk):
         self.debug_checkbox = ttk.Checkbutton(container, text="Debug (console + log)", variable=self.debug_var)
         self.debug_checkbox.grid(row=12, column=0, sticky="w")
 
-        # Fetch button
+        # Fetch button next to Refresh (left of it)
         self.fetch_button = ttk.Button(container, text="Fetch from Core", command=self.on_fetch_from_core)
-        self.fetch_button.grid(row=12, column=1, sticky="ew", pady=(8, 0))
+        self.fetch_button.grid(row=6, column=1, sticky="w", padx=(8, 8))
 
         # Status
         self.status_var = tk.StringVar(value="")
