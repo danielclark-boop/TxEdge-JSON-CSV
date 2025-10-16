@@ -61,6 +61,17 @@ def list_json_files(site_folder: str, env_folder: str) -> list:
     return files
 
 
+def list_import_csvs(site_folder: str, env_folder: str, import_type: str) -> list:
+    base = os.path.join(PROJECT_ROOT, "Sites", site_folder, env_folder, "Editable-CSVs")
+    sub = "Streams" if import_type == "Update Streams" else ("Sources" if import_type == "Update Inputs" else "Outputs")
+    target = os.path.join(base, sub)
+    try:
+        files = sorted([f for f in os.listdir(target) if f.lower().endswith(".csv")])
+    except FileNotFoundError:
+        files = []
+    return files
+
+
 def _hide_windows_console_if_present() -> None:
     """On Windows, hide the console window so the GUI runs without a static terminal."""
     if not sys.platform.startswith("win"):
@@ -374,7 +385,43 @@ class TxEdgeGUI(tk.Tk):
         self.import_env_var = tk.StringVar(value=self.env_var.get())
         self.import_env_combo = ttk.Combobox(frame, textvariable=self.import_env_var, values=ENV_FOLDERS, state="readonly")
         self.import_env_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
+
+        # Import Type
+        ttk.Label(frame, text="Import Type").grid(row=4, column=0, sticky="w")
+        self.import_type_var = tk.StringVar(value="Update Streams")
+        self.import_type_combo = ttk.Combobox(frame, textvariable=self.import_type_var, values=["Update Streams", "Update Inputs", "Update Outputs"], state="readonly")
+        self.import_type_combo.grid(row=5, column=0, sticky="ew", pady=(0, 8))
+        self.import_type_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_import_files())
+
+        # Import file selector with Refresh and View buttons
+        ttk.Label(frame, text="Import CSV").grid(row=6, column=0, sticky="w")
+        self.import_refresh_btn = ttk.Button(frame, text="Refresh", command=self._refresh_import_files)
+        self.import_refresh_btn.grid(row=6, column=2, sticky="w", padx=(8, 0))
+        self.import_view_btn = ttk.Button(frame, text="View Import Directory", command=self.on_open_import_folder)
+        self.import_view_btn.grid(row=6, column=1, sticky="w", padx=(8, 8))
+        self.import_file_var = tk.StringVar(value="")
+        self.import_file_combo = ttk.Combobox(frame, textvariable=self.import_file_var, values=[], state="readonly", width=60)
+        self.import_file_combo.grid(row=7, column=0, sticky="ew", pady=(4, 12))
+
+        # Debug for import
+        self.import_debug_var = tk.BooleanVar(value=False)
+        self.import_debug_checkbox = ttk.Checkbutton(frame, text="Debug (import)", variable=self.import_debug_var)
+        self.import_debug_checkbox.grid(row=8, column=0, sticky="w")
+
+        # Bind changes
+        self.import_site_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_import_files())
+        self.import_env_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_import_files())
+        self._refresh_import_files()
         self._import_frame = frame
+
+    def _refresh_import_files(self) -> None:
+        site = getattr(self, 'import_site_var', tk.StringVar(value="")).get()
+        env = getattr(self, 'import_env_var', tk.StringVar(value="")).get()
+        itype = getattr(self, 'import_type_var', tk.StringVar(value="Update Streams")).get()
+        files = list_import_csvs(site, env, itype)
+        if hasattr(self, 'import_file_combo'):
+            self.import_file_combo["values"] = files
+            self.import_file_var.set(files[0] if files else "")
 
     def _refresh_json_options(self) -> None:
         if self.mode_var.get() != "export":
@@ -389,6 +436,8 @@ class TxEdgeGUI(tk.Tk):
         self.json_var.set(files[0] if files else "")
 
     def on_run_clicked(self) -> None:
+        if self.mode_var.get() == "import":
+            return self._on_run_import()
         env_folder = self.env_var.get()
         script_label = self.script_var.get()
         json_file_name = self.json_var.get()
@@ -518,6 +567,94 @@ class TxEdgeGUI(tk.Tk):
                 self.status_var.set("Failed.")
         finally:
             self.run_button.configure(state=tk.NORMAL)
+
+    def _on_run_import(self) -> None:
+        site = self.import_site_var.get()
+        env = self.import_env_var.get()
+        itype = self.import_type_var.get()
+        csv_name = self.import_file_var.get()
+        if not site or not env or not itype or not csv_name:
+            messagebox.showerror("Error", "Please select Site, Environment, Import Type and a CSV file.")
+            return
+        # Import lazily
+        try:
+            from import_editables import import_streams, import_sources, import_outputs, _connect_core  # type: ignore
+        except Exception as exc:
+            messagebox.showerror("Error", f"Import module not available: {exc}")
+            return
+        # Prepare paths
+        sub = "Streams" if itype == "Update Streams" else ("Sources" if itype == "Update Inputs" else "Outputs")
+        target_dir = os.path.join(PROJECT_ROOT, "Sites", site, env, "Editable-CSVs", sub)
+        csv_path = os.path.join(target_dir, csv_name)
+        if not os.path.exists(csv_path):
+            messagebox.showerror("Error", f"CSV not found: {csv_path}")
+            return
+        # Read first row to determine edge id (mwedge)
+        edge_id = None
+        try:
+            import csv as _csv
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = _csv.DictReader(f)
+                for row in reader:
+                    edge_id = row.get("mwedge")
+                    if edge_id:
+                        break
+        except Exception:
+            pass
+        if not edge_id:
+            messagebox.showerror("Error", "Cannot determine edge id (mwedge) from the CSV.")
+            return
+        # Connect to core
+        cores = SITE_ENV_CONFIG.get(site, {}).get(env, {}).get("cores", [])
+        token = SITE_ENV_CONFIG.get(site, {}).get(env, {}).get("token", "")
+        verify_https = SITE_ENV_CONFIG.get(site, {}).get(env, {}).get("verifyHTTPS", True)
+        if not cores or not token:
+            messagebox.showerror("Error", "Missing cores or token in site_env_config.json for the selected Site/Environment.")
+            return
+        self.status_var.set("Importing...")
+        self.run_button.configure(state=tk.DISABLED)
+        self.update_idletasks()
+
+        def worker() -> None:
+            try:
+                core, used_addr = _connect_core(cores, token, verify_https, 10, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                if itype == "Update Streams":
+                    summary = import_streams(csv_path, core, edge_id, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                elif itype == "Update Inputs":
+                    summary = import_sources(csv_path, core, edge_id, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                else:
+                    summary = import_outputs(csv_path, core, edge_id, os.path.join(PROJECT_ROOT, "weaver_import.log") if self.import_debug_var.get() else None)
+                self.after(0, lambda: messagebox.showinfo("Import complete", f"Created: {summary.get('created',0)}\nUpdated: {summary.get('updated',0)}\nFailed: {summary.get('failed',0)}"))
+            except Exception as exc:
+                self.after(0, lambda: messagebox.showerror("Import failed", str(exc)))
+            finally:
+                self.after(0, lambda: self.run_button.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.status_var.set(""))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_open_import_folder(self) -> None:
+        site = self.import_site_var.get()
+        env = self.import_env_var.get()
+        itype = self.import_type_var.get()
+        sub = "Streams" if itype == "Update Streams" else ("Sources" if itype == "Update Inputs" else "Outputs")
+        target_dir = os.path.join(PROJECT_ROOT, "Sites", site, env, "Editable-CSVs", sub)
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+        except Exception as exc:
+            messagebox.showerror("Error", f"Cannot create/access folder:\n{target_dir}\n\n{exc}")
+            return
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(target_dir)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", target_dir])
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", target_dir])
+        except Exception as exc:
+            messagebox.showerror("Error", f"Failed to open folder:\n{target_dir}\n\n{exc}")
 
     def on_open_output_folder(self) -> None:
         env_folder = self.env_var.get()
