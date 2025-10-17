@@ -32,9 +32,7 @@ ENV_FOLDERS = ["TDP", "D2C", "FTS"]
 SCRIPT_LABEL_TO_FUNC = {
     "Stream Information": convert_streams_sources,
     "Input/Output Information": convert_txedge_to_csv,
-    "Stream Edit": convert_stream_edit,
-    "Input Edit": convert_input_edit,
-    "Output Edit": convert_output_edit,
+    "Create Editable CSVs": None,  # Handled specially: runs all three edit exporters
 }
 
 # Load site/env configuration for Core addresses and tokens
@@ -154,9 +152,7 @@ def _update_script_mapping() -> None:
     """Refresh mapping after late imports in frozen builds."""
     SCRIPT_LABEL_TO_FUNC["Stream Information"] = convert_streams_sources  # type: ignore[index]
     SCRIPT_LABEL_TO_FUNC["Input/Output Information"] = convert_txedge_to_csv  # type: ignore[index]
-    SCRIPT_LABEL_TO_FUNC["Stream Edit"] = convert_stream_edit  # type: ignore[index]
-    SCRIPT_LABEL_TO_FUNC["Input Edit"] = convert_input_edit  # type: ignore[index]
-    SCRIPT_LABEL_TO_FUNC["Output Edit"] = convert_output_edit  # type: ignore[index]
+    SCRIPT_LABEL_TO_FUNC["Create Editable CSVs"] = None  # type: ignore[index]
 
 
 def _ensure_environment_structure() -> None:
@@ -646,15 +642,10 @@ class TxEdgeGUI(tk.Tk):
             elif script_label == "Input/Output Information":
                 output_base = trimmed_base
                 subfolder = "Input-Output-CSVs"
-            elif script_label == "Stream Edit":
-                output_base = f"{trimmed_base}-Streams"
-                subfolder = os.path.join("Editable-CSVs", "Streams")
-            elif script_label == "Input Edit":
-                output_base = f"{trimmed_base}-Sources"
-                subfolder = os.path.join("Editable-CSVs", "Sources")
-            elif script_label == "Output Edit":
-                output_base = f"{trimmed_base}-Outputs"
-                subfolder = os.path.join("Editable-CSVs", "Outputs")
+            elif script_label == "Create Editable CSVs":
+                # This path is not used directly; multi-export builds specific names
+                output_base = trimmed_base
+                subfolder = os.path.join("Editable-CSVs")
             else:
                 output_base = trimmed_base
                 subfolder = "Input-Output-CSVs"
@@ -685,9 +676,12 @@ class TxEdgeGUI(tk.Tk):
                 for idx, fname in enumerate(all_files, start=1):
                     self.after(0, lambda f=fname: self.active_file_var.set(f"Converting: {f}"))
                     input_abs_path = os.path.join(PROJECT_ROOT, "Sites", self.site_var.get(), env_folder, fname)
-                    output_abs_path = make_output_path(fname)
                     try:
-                        convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
+                        if script_label == "Create Editable CSVs":
+                            self._run_all_edit_exports(input_abs_path, env_folder)
+                        else:
+                            output_abs_path = make_output_path(fname)
+                            convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
                         successes += 1
                     except Exception as exc:
                         failures += 1
@@ -716,16 +710,44 @@ class TxEdgeGUI(tk.Tk):
                 messagebox.showerror("Error", f"Input JSON not found: {input_abs_path}")
                 self.status_var.set("Failed.")
                 return
-            output_abs_path = make_output_path(json_file_name)
             try:
-                convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
-                self.status_var.set(f"Done: {os.path.relpath(output_abs_path, PROJECT_ROOT)}")
-                messagebox.showinfo("Success", f"CSV created:\n{output_abs_path}")
+                if script_label == "Create Editable CSVs":
+                    self._run_all_edit_exports(input_abs_path, env_folder)
+                    self.status_var.set("Done: Editable CSVs created")
+                    messagebox.showinfo("Success", f"Editable CSVs created for:\n{json_file_name}")
+                else:
+                    output_abs_path = make_output_path(json_file_name)
+                    convert_func(input_abs_path, output_abs_path)  # type: ignore[misc]
+                    self.status_var.set(f"Done: {os.path.relpath(output_abs_path, PROJECT_ROOT)}")
+                    messagebox.showinfo("Success", f"CSV created:\n{output_abs_path}")
             except Exception as exc:
                 messagebox.showerror("Conversion failed", str(exc))
                 self.status_var.set("Failed.")
         finally:
             self.run_button.configure(state=tk.NORMAL)
+
+    def _run_all_edit_exports(self, input_abs_path: str, env_folder: str) -> None:
+        # Lazy import to ensure availability
+        try:
+            from editable_exports import convert_stream_edit as _cse, convert_input_edit as _cie, convert_output_edit as _coe  # type: ignore
+        except Exception as _e:
+            raise RuntimeError(f"Editable export converters not available: {_e}")
+        base_no_ext = os.path.splitext(os.path.basename(input_abs_path))[0]
+        base_lower = base_no_ext.lower()
+        trimmed_base = base_no_ext[:-len("-config")] if base_lower.endswith("-config") else base_no_ext
+        site = self.site_var.get()
+        # Streams
+        out_dir = os.path.join(PROJECT_ROOT, "Sites", site, env_folder, "Editable-CSVs", "Streams")
+        os.makedirs(out_dir, exist_ok=True)
+        _cse(input_abs_path, os.path.join(out_dir, f"{trimmed_base}-Streams.csv"))
+        # Sources
+        out_dir = os.path.join(PROJECT_ROOT, "Sites", site, env_folder, "Editable-CSVs", "Sources")
+        os.makedirs(out_dir, exist_ok=True)
+        _cie(input_abs_path, os.path.join(out_dir, f"{trimmed_base}-Sources.csv"))
+        # Outputs
+        out_dir = os.path.join(PROJECT_ROOT, "Sites", site, env_folder, "Editable-CSVs", "Outputs")
+        os.makedirs(out_dir, exist_ok=True)
+        _coe(input_abs_path, os.path.join(out_dir, f"{trimmed_base}-Outputs.csv"))
 
     def _on_run_import(self) -> None:
         site = self.import_site_var.get()
