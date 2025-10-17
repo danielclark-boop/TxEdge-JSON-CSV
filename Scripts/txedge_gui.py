@@ -610,7 +610,10 @@ class TxEdgeGUI(tk.Tk):
         # Resolve conversion function (with lazy import fallback for editable exports)
         convert_func = SCRIPT_LABEL_TO_FUNC.get(script_label)
         if convert_func is None:
-            if script_label in ("Stream Edit", "Input Edit", "Output Edit"):
+            if script_label == "Create Editable CSVs":
+                # Special case handled elsewhere; no single function required
+                convert_func = None
+            elif script_label in ("Stream Edit", "Input Edit", "Output Edit"):
                 try:
                     from editable_exports import convert_stream_edit as _cse, convert_input_edit as _cie, convert_output_edit as _coe  # type: ignore
                     SCRIPT_LABEL_TO_FUNC["Stream Edit"] = _cse
@@ -620,7 +623,7 @@ class TxEdgeGUI(tk.Tk):
                 except Exception as _e:
                     messagebox.showerror("Error", f"Missing editable export converters: {str(_e)}")
                     return
-            if convert_func is None:
+            if convert_func is None and script_label != "Create Editable CSVs":
                 messagebox.showerror("Error", f"Conversion function not available for: {script_label}")
                 return
 
