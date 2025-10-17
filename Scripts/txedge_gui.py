@@ -194,8 +194,10 @@ class TxEdgeGUI(tk.Tk):
         self.mode_var = tk.StringVar(value="")
         self.export_button = ttk.Button(mode_frame, text="Export", command=self.on_select_export)
         self.import_button = ttk.Button(mode_frame, text="Import", command=self.on_select_import)
+        self.sheets_button = ttk.Button(mode_frame, text="Google Sheets", command=self.on_select_sheets)
         self.export_button.grid(row=0, column=0, sticky="ew", padx=(0, 8))
-        self.import_button.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        self.import_button.grid(row=0, column=1, sticky="ew", padx=(8, 8))
+        self.sheets_button.grid(row=0, column=2, sticky="ew")
 
         container = ttk.Frame(self, padding=16)
         container.grid(row=1, column=0, sticky="nsew")
@@ -285,6 +287,7 @@ class TxEdgeGUI(tk.Tk):
 
         self._hide_widgets(self._export_widgets + self._shared_widgets)
         self._import_frame = None
+        self._sheets_frame = None
 
     def on_fetch_from_core(self) -> None:
         site = getattr(self, 'site_var', tk.StringVar(value="")).get()
@@ -413,6 +416,148 @@ class TxEdgeGUI(tk.Tk):
         self.import_env_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_import_files())
         self._refresh_import_files()
         self._import_frame = frame
+
+    def on_select_sheets(self) -> None:
+        self.mode_var.set("sheets")
+        # Hide export/import widgets
+        self._hide_widgets(self._export_widgets + self._shared_widgets)
+        if self._import_frame is not None:
+            try:
+                self._import_frame.grid_remove()
+            except Exception:
+                pass
+        if self._sheets_frame is None:
+            self._build_sheets_ui(parent=self.children[list(self.children.keys())[1]])
+        try:
+            self._sheets_frame.grid()
+        except Exception:
+            pass
+
+    def _build_sheets_ui(self, parent: ttk.Frame) -> None:
+        frame = ttk.Frame(parent)
+        frame.grid(row=0, column=0, sticky="nsew")
+        # Site & Env
+        ttk.Label(frame, text="Site").grid(row=0, column=0, sticky="w")
+        self.sheets_site_var = tk.StringVar(value=self.site_var.get())
+        self.sheets_site_combo = ttk.Combobox(frame, textvariable=self.sheets_site_var, values=SITE_OPTIONS, state="readonly")
+        self.sheets_site_combo.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(frame, text="TechEx Environment").grid(row=2, column=0, sticky="w")
+        self.sheets_env_var = tk.StringVar(value=self.env_var.get())
+        self.sheets_env_combo = ttk.Combobox(frame, textvariable=self.sheets_env_var, values=ENV_FOLDERS, state="readonly")
+        self.sheets_env_combo.grid(row=3, column=0, sticky="ew", pady=(0, 8))
+        # File list with checkboxes (Streams/Sources/Outputs together)
+        ttk.Label(frame, text="Editable CSVs (Streams/Sources/Outputs)").grid(row=4, column=0, sticky="w")
+        list_container = ttk.Frame(frame)
+        list_container.grid(row=5, column=0, sticky="nsew")
+        frame.grid_rowconfigure(5, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+        canvas = tk.Canvas(list_container, height=220)
+        scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=canvas.yview)
+        self.files_inner = ttk.Frame(canvas)
+        self.files_inner.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=self.files_inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        list_container.grid_rowconfigure(0, weight=1)
+        list_container.grid_columnconfigure(0, weight=1)
+
+        self._sheets_file_vars: dict[str, tk.BooleanVar] = {}
+        def refresh_files():
+            for w in list(self.files_inner.children.values()):
+                try:
+                    w.destroy()
+                except Exception:
+                    pass
+            site = self.sheets_site_var.get()
+            env = self.sheets_env_var.get()
+            base = os.path.join(PROJECT_ROOT, "Sites", site, env, "Editable-CSVs")
+            subfolders = ["Streams", "Sources", "Outputs"]
+            files = []
+            for sf in subfolders:
+                path = os.path.join(base, sf)
+                try:
+                    for f in os.listdir(path):
+                        if f.lower().endswith('.csv'):
+                            files.append((sf, os.path.join(path, f)))
+                except FileNotFoundError:
+                    continue
+            for sf, fp in sorted(files, key=lambda x: os.path.basename(x[1]).lower()):
+                var = tk.BooleanVar(value=False)
+                self._sheets_file_vars[fp] = var
+                cb = ttk.Checkbutton(self.files_inner, text=f"{sf}/" + os.path.basename(fp), variable=var)
+                cb.pack(anchor="w")
+        refresh_files()
+        self.sheets_site_combo.bind("<<ComboboxSelected>>", lambda e: refresh_files())
+        self.sheets_env_combo.bind("<<ComboboxSelected>>", lambda e: refresh_files())
+
+        # Action buttons
+        btns = ttk.Frame(frame)
+        btns.grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        push_btn = ttk.Button(btns, text="Push to Sheets", command=self._on_sheets_push)
+        pull_btn = ttk.Button(btns, text="Update from Sheets", command=self._on_sheets_pull)
+        push_btn.grid(row=0, column=0, sticky="w")
+        pull_btn.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self._sheets_frame = frame
+
+    def _get_sheets_config(self, site: str) -> tuple[str, str]:
+        site_cfg = SITE_ENV_CONFIG.get(site, {})
+        url = site_cfg.get("SheetsURL") or SITE_ENV_CONFIG.get("SheetsURL")
+        key = SITE_ENV_CONFIG.get("SheetsAPIkey", "")
+        return url, key
+
+    def _collect_selected_files(self) -> list[str]:
+        return [fp for fp, var in self._sheets_file_vars.items() if var.get()]
+
+    def _on_sheets_push(self) -> None:
+        site = self.sheets_site_var.get()
+        url, key = self._get_sheets_config(site)
+        if not url or not key:
+            messagebox.showerror("Missing config", "SheetsURL or SheetsAPIkey is missing in site_env_config.json")
+            return
+        try:
+            from sheets_bridge import push_csv_files_to_sheets  # type: ignore
+        except Exception as exc:
+            messagebox.showerror("Error", f"sheets_bridge not available: {exc}")
+            return
+        files = self._collect_selected_files()
+        if not files:
+            messagebox.showerror("Error", "No CSV files selected.")
+            return
+        res = push_csv_files_to_sheets(url, key, files)
+        if not res.get("success"):
+            messagebox.showerror("Push failed", json.dumps(res, indent=2))
+        else:
+            messagebox.showinfo("Success", json.dumps(res, indent=2))
+
+    def _on_sheets_pull(self) -> None:
+        site = self.sheets_site_var.get()
+        env = self.sheets_env_var.get()
+        url, key = self._get_sheets_config(site)
+        if not url or not key:
+            messagebox.showerror("Missing config", "SheetsURL or SheetsAPIkey is missing in site_env_config.json")
+            return
+        try:
+            from sheets_bridge import pull_csvs_from_sheets_to_files  # type: ignore
+        except Exception as exc:
+            messagebox.showerror("Error", f"sheets_bridge not available: {exc}")
+            return
+        files = self._collect_selected_files()
+        if not files:
+            messagebox.showerror("Error", "No CSV files selected.")
+            return
+        # Map tab names to file paths (tab = file name without .csv)
+        tab_to_file = {}
+        for fp in files:
+            name = os.path.splitext(os.path.basename(fp))[0]
+            tab_to_file[name] = fp
+        res = pull_csvs_from_sheets_to_files(url, key, tab_to_file)
+        if not res.get("success"):
+            messagebox.showerror("Pull failed", json.dumps(res, indent=2))
+        else:
+            messagebox.showinfo("Success", json.dumps(res, indent=2))
 
     def _refresh_import_files(self) -> None:
         site = getattr(self, 'import_site_var', tk.StringVar(value="")).get()

@@ -28,6 +28,30 @@ def push_csv_to_sheets(webapp_url: str, api_key: str, folder_path: str) -> Dict:
 		return {"success": False, "error": str(e)}
 
 
+def push_csv_files_to_sheets(webapp_url: str, api_key: str, file_paths: List[str]) -> Dict:
+	files_payload = []
+	for abs_path in sorted(file_paths):
+		if not abs_path.lower().endswith('.csv'):
+			continue
+		if not os.path.isfile(abs_path):
+			continue
+		entry = os.path.basename(abs_path)
+		with open(abs_path, 'r', encoding='utf-8') as f:
+			csv_text = f.read()
+		files_payload.append({"filename": entry, "csv": csv_text})
+	if not files_payload:
+		return {"success": False, "message": "No CSV files found to upload."}
+	payload = {"key": api_key, "files": files_payload}
+	try:
+		resp = requests.post(webapp_url, json=payload, timeout=(10, 60))
+		resp.raise_for_status()
+		return resp.json()
+	except requests.HTTPError as e:
+		return {"success": False, "error": f"HTTP {resp.status_code}", "details": str(e), "body": resp.text if 'resp' in locals() else None}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
 def pull_csvs_from_sheets(webapp_url: str, api_key: str, tabs: List[str], output_folder: str) -> Dict:
 	if not tabs:
 		return {"success": False, "message": "No tabs requested."}
@@ -49,6 +73,34 @@ def pull_csvs_from_sheets(webapp_url: str, api_key: str, tabs: List[str], output
 			with open(os.path.join(output_folder, fname), 'w', encoding='utf-8', newline='') as f:
 				f.write(csv_text)
 			written.append(fname)
+		return {"success": True, "written": written, "raw": data}
+	except requests.HTTPError as e:
+		return {"success": False, "error": f"HTTP {resp.status_code}", "details": str(e), "body": resp.text if 'resp' in locals() else None}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+
+
+def pull_csvs_from_sheets_to_files(webapp_url: str, api_key: str, tab_to_file: Dict[str, str]) -> Dict:
+	if not tab_to_file:
+		return {"success": False, "message": "No tabs requested."}
+	params = {"key": api_key, "tabs": ",".join(sorted(tab_to_file.keys()))}
+	try:
+		resp = requests.get(webapp_url, params=params, timeout=(10, 60))
+		resp.raise_for_status()
+		data = resp.json()
+		if not data.get("success"):
+			return data
+		written = []
+		for item in data.get("results", []):
+			name = item.get("name")
+			if not item.get("success") or name not in tab_to_file:
+				continue
+			csv_text = item.get("csv", "")
+			target = tab_to_file[name]
+			os.makedirs(os.path.dirname(target), exist_ok=True)
+			with open(target, 'w', encoding='utf-8', newline='') as f:
+				f.write(csv_text)
+			written.append(target)
 		return {"success": True, "written": written, "raw": data}
 	except requests.HTTPError as e:
 		return {"success": False, "error": f"HTTP {resp.status_code}", "details": str(e), "body": resp.text if 'resp' in locals() else None}
