@@ -855,12 +855,8 @@ class TxEdgeGUI(tk.Tk):
             subfolder = "StreamInfo-CSVs"
         elif script_label == "Input/Output Information":
             subfolder = "Input-Output-CSVs"
-        elif script_label == "Stream Edit":
-            subfolder = os.path.join("Editable-CSVs", "Streams")
-        elif script_label == "Input Edit":
-            subfolder = os.path.join("Editable-CSVs", "Sources")
-        elif script_label == "Output Edit":
-            subfolder = os.path.join("Editable-CSVs", "Outputs")
+        elif script_label == "Create Editable CSVs":
+            subfolder = os.path.join("Editable-CSVs")
         else:
             subfolder = "Input-Output-CSVs"
 
