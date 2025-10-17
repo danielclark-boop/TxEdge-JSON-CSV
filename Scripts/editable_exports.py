@@ -1,6 +1,7 @@
 import json
 import csv
 from typing import List, Dict, Any
+import weaver
 
 
 def _collect_columns(items: List[Dict[str, Any]]) -> List[str]:
@@ -84,10 +85,23 @@ def convert_input_edit(input_json_path: str, output_csv_path: str) -> None:
 		fr = _flatten_record(r)
 		fr["streamName"] = stream_id_to_name.get(str(r.get("stream", "")), "")
 		flat_rows.append(fr)
-	# Columns: ensure id, streamName are first two
+	# Build allowlist from Weaver definitions and model
+	allowed_top = {
+		"id", "name", "stream", "priority", "protocol", "monitorOnly", "paused",
+		"active", "etr290Enabled", "stopped", "exhausted", "mwedge", "passive", "tags",
+	}
+	allowed_opts = set(weaver.weaverValidation._definitions.source_options.keys())
+	# Columns: ensure id, streamName are first two and filter to allowed
 	colset = _collect_columns(flat_rows)
-	rest = [c for c in colset if c not in ("id", "streamName")]
-	columns = ["id", "streamName", *rest]
+	filtered = []
+	for c in colset:
+		if c == "id" or c == "streamName":
+			continue
+		if c in allowed_top:
+			filtered.append(c)
+		elif c.startswith("options.") and c.split(".", 1)[1] in allowed_opts:
+			filtered.append(c)
+	columns = ["id", "streamName", *filtered]
 	with open(output_csv_path, "w", encoding="utf-8", newline="") as out:
 		writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore")
 		writer.writeheader()
@@ -111,9 +125,22 @@ def convert_output_edit(input_json_path: str, output_csv_path: str) -> None:
 		fr = _flatten_record(r)
 		fr["streamName"] = stream_id_to_name.get(str(r.get("stream", "")), "")
 		flat_rows.append(fr)
+	# Build allowlist for outputs from Weaver definitions and model
+	allowed_top = {
+		"id", "name", "stream", "protocol", "paused", "active", "stopped", "mwedge",
+		"tags", "muteOnError", "muteOnErrorPeriod", "xor", "xorPaused",
+	}
+	allowed_opts = set(weaver.weaverValidation._definitions.output_options.keys())
 	colset = _collect_columns(flat_rows)
-	rest = [c for c in colset if c not in ("id", "streamName")]
-	columns = ["id", "streamName", *rest]
+	filtered = []
+	for c in colset:
+		if c == "id" or c == "streamName":
+			continue
+		if c in allowed_top:
+			filtered.append(c)
+		elif c.startswith("options.") and c.split(".", 1)[1] in allowed_opts:
+			filtered.append(c)
+	columns = ["id", "streamName", *filtered]
 	with open(output_csv_path, "w", encoding="utf-8", newline="") as out:
 		writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore")
 		writer.writeheader()
