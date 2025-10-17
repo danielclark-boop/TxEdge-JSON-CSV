@@ -1,5 +1,6 @@
 {
   "Pico": {
+    "SheetsURL": "https://script.google.com/macros/s/AKfycbzYQ5DubQrOJjv-HzPVDDdR_UG4JyPPT6GIs0yM329S9uCHaoqVokhY3NLVLMhjj1kk/exec",
     "TDP": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
     "D2C": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
     "FTS": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" }
@@ -8,7 +9,8 @@
     "TDP": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
     "D2C": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" },
     "FTS": { "cores": ["https://core-a.example", "https://core-b.example", "https://core-c.example"], "token": "REPLACE_ME" }
-  }
+  },
+  "SheetsAPIkey": "REPLACE_ME"
 }
 
 
