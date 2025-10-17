@@ -47,7 +47,14 @@ def _load_site_env_config() -> dict:
         return {}
 
 SITE_ENV_CONFIG = _load_site_env_config()
-SITE_OPTIONS = sorted(list(SITE_ENV_CONFIG.keys())) if SITE_ENV_CONFIG else ["Pico", "Tempe"]
+# Only include keys that look like sites (contain at least one known environment)
+if SITE_ENV_CONFIG:
+    SITE_OPTIONS = sorted([
+        k for k, v in SITE_ENV_CONFIG.items()
+        if isinstance(v, dict) and any(env in v for env in ("TDP", "D2C", "FTS"))
+    ])
+else:
+    SITE_OPTIONS = ["Pico", "Tempe"]
 
 
 def list_json_files(site_folder: str, env_folder: str) -> list:
@@ -355,6 +362,11 @@ class TxEdgeGUI(tk.Tk):
                 self._import_frame.grid_remove()
             except Exception:
                 pass
+        if self._sheets_frame is not None:
+            try:
+                self._sheets_frame.grid_remove()
+            except Exception:
+                pass
         self._show_widgets(self._export_widgets + self._shared_widgets)
         self._refresh_json_options()
 
@@ -530,7 +542,8 @@ class TxEdgeGUI(tk.Tk):
         if not res.get("success"):
             messagebox.showerror("Push failed", json.dumps(res, indent=2))
         else:
-            messagebox.showinfo("Success", json.dumps(res, indent=2))
+            count = len(self._collect_selected_files())
+            messagebox.showinfo("Success", f"Successfully Pushed {count} file(s) to Google Sheets")
 
     def _on_sheets_pull(self) -> None:
         site = self.sheets_site_var.get()
@@ -557,7 +570,8 @@ class TxEdgeGUI(tk.Tk):
         if not res.get("success"):
             messagebox.showerror("Pull failed", json.dumps(res, indent=2))
         else:
-            messagebox.showinfo("Success", json.dumps(res, indent=2))
+            count = len(res.get("written", []))
+            messagebox.showinfo("Success", f"Successfully Pulled {count} file(s) from Google Sheets")
 
     def _refresh_import_files(self) -> None:
         site = getattr(self, 'import_site_var', tk.StringVar(value="")).get()
